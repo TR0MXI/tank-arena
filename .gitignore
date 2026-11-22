@@ -1,0 +1,17 @@
+# 构建与导出产物
+/target/
+/dist/
+/exports/
+
+# 仅供本地开发的示例工具
+/examples/
+
+# 游戏运行时的个人数据
+/bots/
+/demo/
+/maps/
+/tank-skins.json
+
+# 系统与脚本缓存
+.DS_Store
+__pycache__/

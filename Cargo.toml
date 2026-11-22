@@ -1,0 +1,63 @@
+[package]
+name = "tank-arena"
+version = "1.0.0"
+edition = "2024"
+include = [
+  "/src/", "/assets/", "/locales/", "/tests/",
+  "/scripts/*.py", "/scripts/*.sh", "/rust-toolchain.toml", "/stylua.toml",
+  "/README*", "/LICENSE*", "/NOTICE*", "!**/.DS_Store",
+]
+
+[features]
+default = ["luau-native"]
+dev-assets = ["bevy/file_watcher"]
+luau-native = ["mlua/luau-jit"]
+
+[dependencies]
+bitcode = "0.6.9"
+blake3 = "1.8.7"
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
+directories = "6.0.0"
+fastrand = "2.5.0"
+libm = "0.2.16"
+mlua = { version = "0.12.2", default-features = false, features = ["luau"] }
+rust-i18n = "4.2.4"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tempfile = "3.27.0"
+thiserror = "2.0.21"
+zstd = { version = "0.14.4", default-features = false }
+
+[dependencies.bevy]
+version = "=0.20.1"
+default-features = false
+features = [
+  "default_font",
+  "async_executor",
+  "bevy_animation",
+  "bevy_asset",
+  "bevy_core_pipeline",
+  "bevy_log",
+  "bevy_picking",
+  "bevy_sprite_render",
+  "bevy_state",
+  "bevy_ui_render",
+  "bevy_ui_widgets",
+  "bevy_winit",
+  "keyboard",
+  "mouse",
+  "multi_threaded",
+  "png",
+  "std",
+  "system_font_discovery",
+  "ui_picking",
+  "x11",
+]
+
+[dev-dependencies]
+cpu-time = "1.0.0"
+stats_alloc = "0.1.10"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2.191"
+mach2 = "0.7.0"

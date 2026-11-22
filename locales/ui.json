@@ -1,0 +1,715 @@
+{
+  "_version": 2,
+  "settings": {
+    "zh-CN": "设置",
+    "en": "Settings"
+  },
+  "close": {
+    "zh-CN": "关闭",
+    "en": "Close"
+  },
+  "home": {
+    "zh-CN": "主菜单",
+    "en": "Home"
+  },
+  "start": {
+    "zh-CN": "开始对局",
+    "en": "New match"
+  },
+  "spawnCount": {
+    "zh-CN": "%{n} 个出生点",
+    "en": "%{n} spawn points"
+  },
+  "mapLibrary": {
+    "zh-CN": "地图库",
+    "en": "Maps"
+  },
+  "emptyMaps": {
+    "zh-CN": "暂无地图",
+    "en": "No maps yet"
+  },
+  "deployMap": {
+    "zh-CN": "用于布阵",
+    "en": "Deploy here"
+  },
+  "invalidMapFile": {
+    "zh-CN": "无法读取此地图",
+    "en": "Unreadable map"
+  },
+  "cancelDelete": {
+    "zh-CN": "取消",
+    "en": "Cancel"
+  },
+  "fileChanged": {
+    "zh-CN": "文件已更改，请重新选择。",
+    "en": "File changed. Select it again."
+  },
+  "library": {
+    "zh-CN": "回放库",
+    "en": "Replays"
+  },
+  "setup": {
+    "zh-CN": "战斗部署",
+    "en": "Match deployment"
+  },
+  "roster": {
+    "zh-CN": "参赛名单",
+    "en": "Roster"
+  },
+  "team": {
+    "zh-CN": "队",
+    "en": "Team"
+  },
+  "teamCount": {
+    "zh-CN": "队",
+    "en": "teams"
+  },
+  "remove": {
+    "zh-CN": "移除",
+    "en": "Remove"
+  },
+  "limit": {
+    "zh-CN": "时限",
+    "en": "Time limit"
+  },
+  "minute": {
+    "zh-CN": "60 秒",
+    "en": "60 sec"
+  },
+  "unlimited": {
+    "zh-CN": "不限时",
+    "en": "Unlimited"
+  },
+  "custom": {
+    "zh-CN": "自定义",
+    "en": "Custom"
+  },
+  "launch": {
+    "zh-CN": "开始比赛",
+    "en": "Start match"
+  },
+  "invalidCount": {
+    "zh-CN": "请部署 2–8 辆坦克。",
+    "en": "Deploy 2–8 tanks."
+  },
+  "invalidTeams": {
+    "zh-CN": "至少需要两支非空队伍。",
+    "en": "Assign at least two nonempty teams."
+  },
+  "invalidSeconds": {
+    "zh-CN": "请输入至少 10 的整数秒数。",
+    "en": "Enter a whole number of seconds (10 or more)."
+  },
+  "invalidOverflow": {
+    "zh-CN": "时限过长，无法安全计时。",
+    "en": "This time limit is too large."
+  },
+  "invalidSpawns": {
+    "zh-CN": "地图的出生点不足。",
+    "en": "Not enough spawn points."
+  },
+  "invalidDuplicate": {
+    "zh-CN": "坦克编号重复。",
+    "en": "Duplicate tank number."
+  },
+  "missingDir": {
+    "zh-CN": "无法打开用户回放目录。",
+    "en": "Replay storage is unavailable."
+  },
+  "scanError": {
+    "zh-CN": "无法读取坦克目录",
+    "en": "Could not read tank directory"
+  },
+  "back": {
+    "zh-CN": "返回",
+    "en": "Back"
+  },
+  "language": {
+    "zh-CN": "界面语言",
+    "en": "Interface language"
+  },
+  "saveError": {
+    "zh-CN": "无法保存设置",
+    "en": "Could not save settings"
+  },
+  "live": {
+    "zh-CN": "实况",
+    "en": "Live"
+  },
+  "teams": {
+    "zh-CN": "队伍",
+    "en": "Teams"
+  },
+  "alive": {
+    "zh-CN": "存活",
+    "en": "Alive"
+  },
+  "out": {
+    "zh-CN": "出局",
+    "en": "Out"
+  },
+  "endMatch": {
+    "zh-CN": "终止对局",
+    "en": "End match"
+  },
+  "confirmEnd": {
+    "zh-CN": "确认终止",
+    "en": "Confirm end"
+  },
+  "cancel": {
+    "zh-CN": "继续比赛",
+    "en": "Keep playing"
+  },
+  "returnHome": {
+    "zh-CN": "返回主页",
+    "en": "Return home"
+  },
+  "leaveHint": {
+    "zh-CN": "返回主页将结束本场对局，且不保存录像。",
+    "en": "Returning home will end this match without saving its replay."
+  },
+  "stopHint": {
+    "zh-CN": "本场不计胜负。",
+    "en": "This match will not count as a win or loss."
+  },
+  "result": {
+    "zh-CN": "比赛结果",
+    "en": "Match result"
+  },
+  "winner": {
+    "zh-CN": "获胜",
+    "en": "wins"
+  },
+  "timeout": {
+    "zh-CN": "时间到，平局",
+    "en": "Time limit · draw"
+  },
+  "mutual": {
+    "zh-CN": "同时全灭，平局",
+    "en": "Mutual elimination · draw"
+  },
+  "stopped": {
+    "zh-CN": "对局已终止",
+    "en": "Match stopped"
+  },
+  "overload": {
+    "zh-CN": "宿主过载，比赛无效",
+    "en": "Host overloaded · no contest"
+  },
+  "workerLost": {
+    "zh-CN": "比赛线程异常，比赛无效",
+    "en": "Worker lost · no contest"
+  },
+  "allForfeited": {
+    "zh-CN": "全员弃权，无胜队",
+    "en": "All forfeited · no winner"
+  },
+  "recorded": {
+    "zh-CN": "回放已保存",
+    "en": "Replay saved"
+  },
+  "incomplete": {
+    "zh-CN": "回放不完整",
+    "en": "Incomplete replay"
+  },
+  "recording": {
+    "zh-CN": "录制中",
+    "en": "Recording"
+  },
+  "notRecorded": {
+    "zh-CN": "未录制",
+    "en": "Not recorded"
+  },
+  "again": {
+    "zh-CN": "再来一局",
+    "en": "Play again"
+  },
+  "watchMatch": {
+    "zh-CN": "回看本局",
+    "en": "Watch replay"
+  },
+  "hits": {
+    "zh-CN": "击毁",
+    "en": "Eliminations"
+  },
+  "friendly": {
+    "zh-CN": "误伤",
+    "en": "Friendly fire"
+  },
+  "selfHit": {
+    "zh-CN": "自击",
+    "en": "Self-hit"
+  },
+  "forfeited": {
+    "zh-CN": "弃权",
+    "en": "Forfeit"
+  },
+  "older": {
+    "zh-CN": "下一页",
+    "en": "Next page"
+  },
+  "newer": {
+    "zh-CN": "上一页",
+    "en": "Previous page"
+  },
+  "validating": {
+    "zh-CN": "正在校验回放…",
+    "en": "Checking replay…"
+  },
+  "badRecording": {
+    "zh-CN": "无法播放此回放",
+    "en": "Cannot play this replay"
+  },
+  "replay": {
+    "zh-CN": "回放",
+    "en": "Replay"
+  },
+  "play": {
+    "zh-CN": "播放",
+    "en": "Play"
+  },
+  "pause": {
+    "zh-CN": "暂停",
+    "en": "Pause"
+  },
+  "replayAgain": {
+    "zh-CN": "从头播放",
+    "en": "Restart"
+  },
+  "step": {
+    "zh-CN": "单步",
+    "en": "Step"
+  },
+  "playing": {
+    "zh-CN": "播放中",
+    "en": "Playing"
+  },
+  "paused": {
+    "zh-CN": "已暂停",
+    "en": "Paused"
+  },
+  "end": {
+    "zh-CN": "已结束",
+    "en": "Finished"
+  },
+  "speed": {
+    "zh-CN": "倍速",
+    "en": "Speed"
+  },
+  "bounce": {
+    "zh-CN": "反弹",
+    "en": "Ricochet"
+  },
+  "shell": {
+    "zh-CN": "炮弹",
+    "en": "Round"
+  },
+  "self": {
+    "zh-CN": "自击",
+    "en": "Self-hit"
+  },
+  "hit": {
+    "zh-CN": "命中",
+    "en": "Hit"
+  },
+  "ready": {
+    "zh-CN": "准备中",
+    "en": "Preparing"
+  },
+  "loadFault": {
+    "zh-CN": "加载失败",
+    "en": "Load failure"
+  },
+  "runtimeFault": {
+    "zh-CN": "坦克控制异常",
+    "en": "Tank control error"
+  },
+  "actionFault": {
+    "zh-CN": "非法动作",
+    "en": "Invalid action"
+  },
+  "budgetFault": {
+    "zh-CN": "超出预算",
+    "en": "Budget exhausted"
+  },
+  "memoryFault": {
+    "zh-CN": "内存不足",
+    "en": "Memory limit"
+  },
+  "replayAt": {
+    "zh-CN": "第 %{line} 条记录：%{reason}",
+    "en": "Record %{line}: %{reason}"
+  },
+  "replayFormat": {
+    "zh-CN": "不是有效的回放记录。",
+    "en": "Invalid replay data."
+  },
+  "replayVersion": {
+    "zh-CN": "此回放版本不受支持。",
+    "en": "This replay version is not supported."
+  },
+  "replayConfig": {
+    "zh-CN": "回放的地图、时限或阵容无效。",
+    "en": "Invalid map, time limit, or lineup."
+  },
+  "replayTruncated": {
+    "zh-CN": "文件提前结束，回放不完整。",
+    "en": "The file ended before the replay was complete."
+  },
+  "replaySequence": {
+    "zh-CN": "记录缺失、多余或顺序有误。",
+    "en": "Records are missing, extra, or out of order."
+  },
+  "replayMismatch": {
+    "zh-CN": "战场状态与录制时不一致。",
+    "en": "The match state differs from the recording."
+  },
+  "replayNotFound": {
+    "zh-CN": "找不到回放文件，请重新选择。",
+    "en": "Replay file not found. Choose it again."
+  },
+  "replayDenied": {
+    "zh-CN": "没有读取回放的权限。",
+    "en": "You do not have permission to read this replay."
+  },
+  "replayReadFailure": {
+    "zh-CN": "读取失败，请检查文件和本机存储空间。",
+    "en": "Could not read the replay. Check the file and local storage."
+  },
+  "editLineup": {
+    "zh-CN": "调整阵容",
+    "en": "Edit lineup"
+  },
+  "resultNotSaved": {
+    "zh-CN": "独立赛果未保存",
+    "en": "Result file not saved"
+  },
+  "saveQueueFull": {
+    "zh-CN": "写盘跟不上比赛",
+    "en": "Recorder queue full"
+  },
+  "saveInterrupted": {
+    "zh-CN": "写入中断",
+    "en": "Writing interrupted"
+  },
+  "saveDenied": {
+    "zh-CN": "没有写入权限",
+    "en": "Write permission denied"
+  },
+  "saveNoSpace": {
+    "zh-CN": "磁盘空间不足",
+    "en": "Disk is full"
+  },
+  "saveExists": {
+    "zh-CN": "目标文件已存在",
+    "en": "Output file already exists"
+  },
+  "saveWriteError": {
+    "zh-CN": "无法写入回放目录",
+    "en": "Cannot write to the replay folder"
+  },
+  "saving": {
+    "zh-CN": "保存中…",
+    "en": "Saving…"
+  },
+  "saveReplay": {
+    "zh-CN": "保存录像",
+    "en": "Save replay"
+  },
+  "emptyLibrary": {
+    "zh-CN": "暂无录像",
+    "en": "No replays yet"
+  },
+  "deleteFailed": {
+    "zh-CN": "删除失败",
+    "en": "Delete failed"
+  },
+  "delete": {
+    "zh-CN": "删除",
+    "en": "Delete"
+  },
+  "confirmDelete": {
+    "zh-CN": "确认删除",
+    "en": "Confirm delete"
+  },
+  "previewUnavailable": {
+    "zh-CN": "预览不可用",
+    "en": "Preview unavailable"
+  },
+  "tanks": {
+    "zh-CN": "坦克",
+    "en": "Tanks"
+  },
+  "groups": {
+    "zh-CN": "队伍",
+    "en": "Teams"
+  },
+  "randomMap": {
+    "zh-CN": "随机生成",
+    "en": "Generate"
+  },
+  "saveMap": {
+    "zh-CN": "保存地图",
+    "en": "Save map"
+  },
+  "mapSaveFailed": {
+    "zh-CN": "无法保存地图",
+    "en": "Could not save map"
+  },
+  "invalidNumber": {
+    "zh-CN": "坦克编号须为 1–8。",
+    "en": "Tank numbers must be 1–8."
+  },
+  "botAuthor": {
+    "zh-CN": "作者：%{author}",
+    "en": "By %{author}"
+  },
+  "teamLabel": {
+    "zh-CN": "第 %{n} 队",
+    "en": "Team %{n}"
+  },
+  "prevMap": {
+    "zh-CN": "上一张地图",
+    "en": "Previous map"
+  },
+  "nextMap": {
+    "zh-CN": "下一张地图",
+    "en": "Next map"
+  },
+  "mapReadFailed": {
+    "zh-CN": "无法读取地图目录",
+    "en": "Cannot read map folder"
+  },
+  "narrower": {
+    "zh-CN": "减小生成宽度",
+    "en": "Decrease generation width"
+  },
+  "wider": {
+    "zh-CN": "增大生成宽度",
+    "en": "Increase generation width"
+  },
+  "shorter": {
+    "zh-CN": "减小生成高度",
+    "en": "Decrease generation height"
+  },
+  "taller": {
+    "zh-CN": "增大生成高度",
+    "en": "Increase generation height"
+  },
+  "deployedCount": {
+    "zh-CN": "已部署 %{n}/%{max}",
+    "en": "%{n}/%{max} deployed"
+  },
+  "addTeam": {
+    "zh-CN": "新增队伍",
+    "en": "Add team"
+  },
+  "removeTeam": {
+    "zh-CN": "删除第 %{n} 队",
+    "en": "Delete Team %{n}"
+  },
+  "nextStep": {
+    "zh-CN": "下一步",
+    "en": "Next"
+  },
+  "previousStep": {
+    "zh-CN": "上一步",
+    "en": "Back"
+  },
+  "emptyTeam": {
+    "zh-CN": "暂无队员",
+    "en": "No members"
+  },
+  "tankModels": {
+    "zh-CN": "坦克车型",
+    "en": "Tank types"
+  },
+  "lineupFull": {
+    "zh-CN": "阵容已满",
+    "en": "Lineup full"
+  },
+  "emptyModels": {
+    "zh-CN": "将 .luau 脚本放入 bots/。",
+    "en": "Add a .luau script to bots/."
+  },
+  "tankManager": {
+    "zh-CN": "坦克管理",
+    "en": "Tank garage"
+  },
+  "pixelCanvas": {
+    "zh-CN": "像素画布",
+    "en": "Pixel canvas"
+  },
+  "frontRight": {
+    "zh-CN": "车头朝右 →",
+    "en": "FRONT →"
+  },
+  "draftPreview": {
+    "zh-CN": "预览",
+    "en": "Preview"
+  },
+  "pixelBrush": {
+    "zh-CN": "画笔",
+    "en": "BRUSH"
+  },
+  "erasePixel": {
+    "zh-CN": "橡皮擦",
+    "en": "Eraser"
+  },
+  "rubberPixel": {
+    "zh-CN": "履带黑",
+    "en": "Track rubber"
+  },
+  "steelPixel": {
+    "zh-CN": "钢灰",
+    "en": "Steel"
+  },
+  "sagePixel": {
+    "zh-CN": "鼠尾草绿",
+    "en": "Sage"
+  },
+  "ivoryPixel": {
+    "zh-CN": "象牙白",
+    "en": "Ivory"
+  },
+  "teamPixel": {
+    "zh-CN": "队色",
+    "en": "Team color"
+  },
+  "brassPixel": {
+    "zh-CN": "黄铜",
+    "en": "Brass"
+  },
+  "navyPixel": {
+    "zh-CN": "夜蓝",
+    "en": "Midnight blue"
+  },
+  "royalPixel": {
+    "zh-CN": "王蓝",
+    "en": "Royal blue"
+  },
+  "silverPixel": {
+    "zh-CN": "月银",
+    "en": "Moon silver"
+  },
+  "goldPixel": {
+    "zh-CN": "浅金",
+    "en": "Pale gold"
+  },
+  "jadePixel": {
+    "zh-CN": "翠玉",
+    "en": "Jade"
+  },
+  "slateBluePixel": {
+    "zh-CN": "雾蓝",
+    "en": "Slate blue"
+  },
+  "saveDesign": {
+    "zh-CN": "保存到我的外观",
+    "en": "Save to my designs"
+  },
+  "skinTarget": {
+    "zh-CN": "目标脚本",
+    "en": "Target script"
+  },
+  "userLook": {
+    "zh-CN": "当前：玩家覆盖",
+    "en": "Active: player override"
+  },
+  "authorLook": {
+    "zh-CN": "当前：脚本默认",
+    "en": "Active: script default"
+  },
+  "systemLook": {
+    "zh-CN": "当前：系统默认",
+    "en": "Active: system default"
+  },
+  "applyDesign": {
+    "zh-CN": "保存并应用",
+    "en": "Save & apply"
+  },
+  "useTarget": {
+    "zh-CN": "取用为草稿",
+    "en": "Copy to draft"
+  },
+  "removeSkin": {
+    "zh-CN": "取消覆盖",
+    "en": "Unbind"
+  },
+  "savedDesigns": {
+    "zh-CN": "我的外观",
+    "en": "My designs"
+  },
+  "designNumber": {
+    "zh-CN": "外观",
+    "en": "Design"
+  },
+  "loadDesign": {
+    "zh-CN": "载入草稿",
+    "en": "Load draft"
+  },
+  "noSavedDesigns": {
+    "zh-CN": "暂无已保存的外观",
+    "en": "No saved designs"
+  },
+  "noSkinTarget": {
+    "zh-CN": "暂无脚本。将 .luau 文件放入 bots/。",
+    "en": "No scripts. Add a .luau file to bots/."
+  },
+  "needTeamPixel": {
+    "zh-CN": "请至少保留 %{min} 个队色细格，再保存或应用。",
+    "en": "Keep at least %{min} team-color pixels before saving or applying."
+  },
+  "skinApplied": {
+    "zh-CN": "已应用，下局生效",
+    "en": "Applied for the next match"
+  },
+  "skinSaved": {
+    "zh-CN": "外观已保存",
+    "en": "Design saved"
+  },
+  "skinRestored": {
+    "zh-CN": "已恢复默认外观",
+    "en": "Default look restored"
+  },
+  "showGuides": {
+    "zh-CN": "辅助线",
+    "en": "Guides"
+  },
+  "simpleLayout": {
+    "zh-CN": "简易 · 24×16",
+    "en": "Simple · 24×16"
+  },
+  "fineLayout": {
+    "zh-CN": "高级 · 48×32",
+    "en": "Advanced · 48×32"
+  },
+  "guideLegend": {
+    "zh-CN": "蓝框：碰撞区（管宽 %{barrel}） · 橙标：弹径 %{shell}",
+    "en": "Blue: hitboxes (barrel %{barrel}) · Orange: shell diameter %{shell}"
+  },
+  "teamCoverage": {
+    "zh-CN": "队色 %{n} 格 · 至少 %{min} 格",
+    "en": "Team color: %{n} pixels · minimum %{min}"
+  },
+  "lineup": {
+    "zh-CN": "阵容",
+    "en": "Lineup"
+  },
+  "mapAndClock": {
+    "zh-CN": "地图与时限",
+    "en": "Map & time"
+  },
+  "generatedMap": {
+    "zh-CN": "随机地图",
+    "en": "Generated map"
+  },
+  "mapGenerator": {
+    "zh-CN": "地图生成",
+    "en": "Map generator"
+  },
+  "addToTeam": {
+    "zh-CN": "加入第 %{n} 队",
+    "en": "Add to Team %{n}"
+  }
+}

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 100 100">
+  <!-- 地面只给尺度感；不画格线，避免把可通过的开口误读成墙。 -->
+  <rect width="100" height="100" fill="#eeefe7"/>
+  <g fill="#c6cec3"><circle cx="25" cy="25" r=".78"/><circle cx="25" cy="75" r=".78"/><circle cx="75" cy="25" r=".78"/><circle cx="75" cy="75" r=".78"/></g>
+  <path d="M47.4 50h5.2M50 47.4v5.2" stroke="#cfd5cb" stroke-width="1.1"/>
+</svg>

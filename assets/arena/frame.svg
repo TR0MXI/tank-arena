@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="288" viewBox="-60 -36 120 72">
+  <!-- 车心是旋转轴；炮管向右。履带压条保持足够宽，小窗口里也能辨认。 -->
+  <defs><g id="track">
+    <rect x="-20.5" y="-17.2" width="40" height="7.5" rx="3.3" fill="#213034"/>
+    <path d="M-16-15.9v3.7m5-3.7v3.7m5-3.7v3.7m5-3.7v3.7m5-3.7v3.7m5-3.7v3.7m5-3.7v3.7" stroke="#86958b" stroke-width="2.1" stroke-linecap="round"/>
+  </g></defs>
+  <g transform="scale(2 1.744186) translate(.5 0)">
+  <use href="#track"/><use href="#track" transform="scale(1 -1)"/>
+  <path d="M-19-8l4-5h27l7 5v16l-7 5h-27l-4-5z" fill="#253538"/>
+  <path d="M-16-7v14m3-14v14" stroke="#71817b" stroke-width="1.3"/>
+  </g>
+  <rect x="14" y="-5" width="28" height="10" fill="#38494a"/>
+  <rect x="26" y="-7" width="28" height="14" rx="1" fill="#29393b"/>
+  <path d="M29-4h20v2H29z" fill="#a8b4a8"/>
+</svg>
