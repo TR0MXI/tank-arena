@@ -58,7 +58,7 @@ fn reject_old_text_unknown_binary_truncation_oversize_and_trailing_data() {
     );
 
     let original_version = bytes[7];
-    for version in [0, 1, 2, 3, 4, 6, 255] {
+    for version in [0, 1, 2, 3, 4, 7, 255] {
         bytes[7] = version;
         assert_eq!(problem(&bytes), (ReplayProblem::Version, 1));
     }

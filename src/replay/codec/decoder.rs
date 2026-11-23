@@ -10,6 +10,7 @@ use std::{
 
 pub(in crate::replay) struct Decoder {
     pub(in crate::replay) skins: SeatSkins,
+    pub(in crate::replay) pool: ItemPool,
     codec: bitcode::Buffer,
     pending: Vec<Record>,
     file: BufReader<File>,
@@ -28,7 +29,7 @@ impl Decoder {
         if magic[..7] != MAGIC[..7] {
             return Err(invalid("not a current Tank Arena recording"));
         }
-        if magic != *MAGIC {
+        if magic != *MAGIC && magic != *ITEM_MAGIC {
             return Err(ReplayIssue::at(
                 1,
                 ReplayProblem::Version,
@@ -36,6 +37,14 @@ impl Decoder {
             ));
         }
 
+        let pool = if magic == *ITEM_MAGIC {
+            let mut mask = [0; 2];
+            file.read_exact(&mut mask)?;
+            ItemPool::from_bits(u16::from_le_bytes(mask))
+                .ok_or_else(|| invalid("unknown crate types"))?
+        } else {
+            ItemPool::NONE
+        };
         let mut skins: SeatSkins = Default::default();
         let mut mask = [0];
         file.read_exact(&mut mask)?;
@@ -49,6 +58,7 @@ impl Decoder {
 
         Ok(Self {
             skins,
+            pool,
             start: file.stream_position()?,
             file,
             codec: bitcode::Buffer::new(),

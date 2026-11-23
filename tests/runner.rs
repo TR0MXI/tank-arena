@@ -83,11 +83,15 @@ fn script_fault_only_forfeits_its_slot() {
 
 #[test]
 fn all_init_failures_finish_at_zero() {
-    let live = game(&[("error('load')", 0), ("while true do end", 1)]);
+    let live = game(&[("error('load')", 0), ("return 42", 1)]);
     wait_for(|| live.finished());
     let f = live.latest();
     assert_eq!((f.tick, f.outcome), (0, Some(Outcome::AllForfeited)));
-    assert_eq!(f.stats[1].fault.as_ref().unwrap().kind, FaultKind::Budget);
+    assert!(
+        f.stats
+            .iter()
+            .all(|s| s.fault.as_ref().unwrap().kind == FaultKind::Load)
+    );
     live.join().unwrap();
 }
 
@@ -98,40 +102,46 @@ fn faults_are_distinct_and_other_teammates_keep_playing() {
         ("not valid luau !!!", 0),
         ("return function(_) error('decision failed') end", 0),
         ("return function(_) return { drive='jump' } end", 0),
-        ("return function(_) while true do end end", 0),
-        (
-            "return function(_) local a=table.create(400000, 1); return a[1] end",
-            0,
-        ),
         (idle, 0),
         (idle, 1),
-        (idle, 1),
     ]);
+    let expected = [FaultKind::Load, FaultKind::Runtime, FaultKind::Action];
     wait_for(|| {
         live.latest()
             .stats
             .iter()
-            .take(5)
+            .take(expected.len())
             .all(|s| s.fault.is_some())
             || live.finished()
     });
     let f = live.latest();
     assert_eq!(f.outcome, None);
-    for (i, expected) in [
-        FaultKind::Load,
-        FaultKind::Runtime,
-        FaultKind::Action,
-        FaultKind::Budget,
-        FaultKind::Memory,
-    ]
-    .iter()
-    .enumerate()
-    {
+    for (i, expected) in expected.iter().enumerate() {
         assert_eq!(f.stats[i].fault.as_ref().map(|e| &e.kind), Some(expected));
         assert!(!f.tanks[i].alive);
     }
 
-    assert!(f.tanks[5..].iter().all(|t| t.alive));
+    assert!(f.tanks[expected.len()..].iter().all(|t| t.alive));
     live.stop();
     live.join().unwrap();
+}
+
+#[test]
+fn stop_interrupts_loops_in_setup_and_decision() {
+    for (script, in_decision) in [
+        ("while true do end", false),
+        ("return function() while true do end end", true),
+    ] {
+        let live = game(&[(script, 0), ("return function() end", 1)]);
+        if in_decision {
+            wait_for(|| live.latest().tick >= 3 || live.finished());
+            let frame = live.latest();
+            assert!(frame.tanks[0].alive && frame.stats[0].fault.is_none());
+            assert!(frame.stats[0].missed > 0);
+        }
+        live.stop();
+        let joined = thread::spawn(move || live.join().unwrap());
+        wait_for(|| joined.is_finished());
+        joined.join().unwrap();
+    }
 }

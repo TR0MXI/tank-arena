@@ -264,3 +264,27 @@ pub(super) fn walls(map: &ArenaMap, p: Point, d: Point, r: i32) -> Option<Contac
 
     first
 }
+
+/// Earliest inward crossing of a circular shield. An outgoing shot can leave it freely.
+pub(super) fn shield(p: Point, d: Point, center: Point, radius: i32) -> Option<Contact> {
+    let q = p.vec() - center.vec();
+    let d = d.vec();
+    let a = d.length_squared();
+    let b = q.dot(d);
+    if a == 0. || b >= 0. {
+        return None;
+    }
+    let c = q.length_squared() - f64::from(radius).powi(2);
+    let disc = b * b - a * c;
+    if disc < 0. {
+        return None;
+    }
+    let t = ((-b - libm::sqrt(disc)) / a).max(0.);
+    if t > 1. {
+        return None;
+    }
+    Some(Contact {
+        t: Fraction(t),
+        normal: (q + t * d).try_normalize()?,
+    })
+}

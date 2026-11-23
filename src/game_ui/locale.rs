@@ -1,6 +1,7 @@
 use super::*;
 use serde::{Deserialize, Serialize};
 use std::{fs, io, path::Path};
+use tank_arena::sim::{Item, ItemPool};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub(super) enum Language {
@@ -24,9 +25,31 @@ impl Language {
     }
 }
 
-#[derive(Resource, Default, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Resource, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(super) struct Preferences {
     language: Language,
+    #[serde(default = "all_items", skip_serializing_if = "is_all_items")]
+    pub(super) items: ItemPool,
+}
+fn all_items() -> ItemPool {
+    ItemPool::ALL
+}
+fn is_all_items(v: &ItemPool) -> bool {
+    *v == ItemPool::ALL
+}
+impl Default for Preferences {
+    fn default() -> Self {
+        Self {
+            language: Language::default(),
+            items: ItemPool::ALL,
+        }
+    }
+}
+impl Preferences {
+    pub(super) fn toggle_crate(&mut self, k: Item) -> io::Result<()> {
+        self.items.toggle(k);
+        save(&path()?, self)
+    }
 }
 
 fn path() -> io::Result<PathBuf> {
@@ -177,6 +200,7 @@ mod tests {
         assert_eq!(read(&p), Preferences::default());
         let settings = Preferences {
             language: Language::English,
+            ..Default::default()
         };
         save(&p, &settings).unwrap();
 

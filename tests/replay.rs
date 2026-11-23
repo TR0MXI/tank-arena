@@ -10,6 +10,9 @@ use tank_arena::{
 };
 
 fn record(dir: &Path, n: usize, ticks: u64) -> PathBuf {
+    record_with_items(dir, n, ticks, ItemPool::NONE)
+}
+fn record_with_items(dir: &Path, n: usize, ticks: u64, pool: ItemPool) -> PathBuf {
     let seats: Vec<_> = (0..n)
         .map(|i| Seat {
             slot: SlotId(i as u32 + 1),
@@ -29,7 +32,9 @@ fn record(dir: &Path, n: usize, ticks: u64) -> PathBuf {
         seats,
         ClockRules::unlimited(),
     )
-    .unwrap();
+    .unwrap()
+    .with_behavior_seed(Some(55))
+    .with_items(pool);
     let (mut r, status) = Recorder::new(dir);
     r.start(&w, &bots, &[]);
     for tick in 0..ticks {
@@ -380,4 +385,25 @@ fn validation_can_be_interrupted_between_records() {
     .unwrap();
     assert_eq!(error.kind(), std::io::ErrorKind::Interrupted);
     assert_eq!(checks, 6);
+}
+
+#[test]
+fn crate_pool_and_drop_sequence_survive_seek_and_reopen() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut pool = ItemPool::NONE;
+    pool.toggle(Item::Speed);
+    let path = record_with_items(dir.path(), 5, 800, pool);
+    let mut p = Playback::open(&path).unwrap();
+    assert_eq!(p.world().items().pool, pool);
+    p.seek(800).unwrap();
+    let last = p.world().items().clone();
+    assert!(!last.crates.is_empty());
+    assert!(last.crates.iter().all(|c| c.item == Item::Speed));
+    for from in [512, 256, 0] {
+        p.seek(from).unwrap();
+        while !p.ended() {
+            p.advance().unwrap();
+        }
+        assert_eq!(p.world().items(), &last);
+    }
 }

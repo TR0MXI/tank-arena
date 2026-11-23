@@ -43,7 +43,7 @@ pub(crate) fn is_luau(path: &Path) -> bool {
         .is_some_and(|ext| ext.eq_ignore_ascii_case(OsStr::new("luau")))
 }
 
-/// 脚本未声明名字时使用。目录根部的 `bot.luau` 仍是单文件，而非包入口。
+/// 脚本未声明名字时使用。目录策略以包目录名为默认显示名。
 pub fn tank_name(path: &Path) -> String {
     let root = crate::local_files::bots_dir().ok();
     let path = root

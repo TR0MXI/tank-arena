@@ -2,6 +2,7 @@ mod annotations;
 mod burst;
 mod floor;
 mod source;
+mod supplies;
 mod vehicle;
 mod walls;
 
@@ -25,6 +26,7 @@ pub(super) enum Actor {
 pub(super) struct Palette {
     dot: Handle<Mesh>,
     ring: Handle<Mesh>,
+    white: Handle<ColorMaterial>,
     amber: Handle<ColorMaterial>,
     pub(super) vehicle: vehicle::VehicleArt,
     floor: Handle<ColorMaterial>,
@@ -63,7 +65,7 @@ pub(super) fn install(app: &mut App) {
     vehicle::install(app);
     app.add_systems(Startup, camera).add_systems(
         PostUpdate,
-        paint
+        (paint, supplies::paint)
             .before(bevy::transform::TransformSystems::Propagate)
             .before(bevy::camera::visibility::VisibilitySystems::VisibilityPropagate),
     );
@@ -78,6 +80,7 @@ pub(super) fn camera(
     c.insert_resource(Palette {
         dot: mesh.add(Circle::new(1.)),
         ring: mesh.add(Annulus::new(5.5, 8.)),
+        white: mat.add(Color::WHITE),
         amber: mat.add(Color::srgb_u8(214, 139, 35)),
         vehicle: vehicle::VehicleArt::load(&server),
         floor: floor::material(&server, &mut mat),
@@ -141,6 +144,7 @@ pub(super) fn draw(
         floor::spawn(p, map, &mut meshes, &palette);
         walls::spawn(p, map, &mut meshes, &palette);
         annotations::spawn(p, &palette);
+        supplies::spawn(p, &mut meshes, &palette);
         for i in 0..MAX_SLOTS {
             let tr = Transform::from_scale(Vec3::new(size / CELL as f32, size / CELL as f32, 1.));
             art.0
@@ -193,6 +197,7 @@ fn paint(
         map,
         tanks,
         shells,
+        items,
         cue,
         tick,
         hits,
@@ -237,7 +242,10 @@ fn paint(
                 }
             }
             Actor::Shell(i) => {
-                let Some(s) = shells.get(*i) else {
+                let Some(s) = shells
+                    .get(*i)
+                    .filter(|s| !items.projectiles.contains_key(&s.id))
+                else {
                     vis.set_if_neq(Visibility::Hidden);
                     continue;
                 };

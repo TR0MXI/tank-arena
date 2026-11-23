@@ -60,7 +60,7 @@ pub(super) fn refresh(
             continue;
         }
 
-        let script = version.as_ref().and_then(|_| Script::read(path).ok());
+        let script = version.as_ref().and_then(|_| Script::read_entry(path).ok());
         cache.insert(path.clone(), (version, script));
         changed = true;
     }

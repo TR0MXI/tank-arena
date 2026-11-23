@@ -30,7 +30,7 @@ impl World {
         self.tanks = c.tanks;
 
         // 索引属于本局固定名单；只从已验证的关键帧重建弹槽，不把派生数据写入回放。
-        self.shells = Shells::from_rounds(c.shells);
+        self.shells = Shells::from_rounds(c.shells, &self.items);
         self.events = c.events;
         self.next_shell = c.next_shell;
         self.outcome = c.outcome;

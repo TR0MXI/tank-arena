@@ -1,5 +1,9 @@
 mod checkpoint;
+mod items;
 mod physics;
+mod weapons;
+pub use items::*;
+pub use weapons::laser_guide;
 mod shells;
 
 use super::{
@@ -100,6 +104,7 @@ pub enum Outcome {
     Timeout,
     AllForfeited,
     Stopped,
+    /// 旧版本录像中的无效局；实时比赛遇到调度卡顿会重新对时。
     HostOverload,
     WorkerLost,
 }
@@ -107,7 +112,7 @@ pub enum Outcome {
 // 离线试验可以复制局面：只读地图共享，控制状态和炮弹独立。
 #[derive(Clone, Debug)]
 pub struct World {
-    // 仅供席位脚本和回放头使用；不进入物理、关键帧或状态摘要。
+    // 席位脚本和道具分别从开局种子派生随机流；无道具时保留旧版物理。
     behavior_seed: Option<u64>,
     cue: Option<Event>,
     // 显示用的命中时刻按名单顺序索引，不计入裁判状态或其哈希。
@@ -117,6 +122,7 @@ pub struct World {
     tick: u64,
     tanks: Vec<Tank>,
     shells: Shells,
+    items: Items,
     // 席号是稳定的；空席用越界下标表示，不能把席号直接当作紧凑名单的下标。
     roster_index: [usize; MAX_SLOTS],
     events: Vec<Event>,
@@ -159,7 +165,11 @@ impl World {
             clock,
             tick: 0,
             tanks,
-            shells: Shells::from_rounds(Vec::with_capacity(MAX_SLOTS * usize::from(AMMO))),
+            shells: Shells::from_rounds(
+                Vec::with_capacity(MAX_SLOTS * usize::from(AMMO)),
+                &Items::default(),
+            ),
+            items: Items::default(),
             events: Vec::with_capacity(128),
             next_shell: 0,
             outcome: None,
@@ -169,6 +179,10 @@ impl World {
     /// None 表示旧回放/确定性基线；Some(0) 也是有效的随机流。
     pub fn with_behavior_seed(mut self, seed: Option<u64>) -> Self {
         self.behavior_seed = seed;
+        if self.tick == 0 && self.items.pool != ItemPool::NONE {
+            let pool = self.items.pool;
+            return self.with_items(pool);
+        }
         self
     }
 
@@ -241,7 +255,16 @@ impl World {
     }
 
     pub fn remaining_ammo(&self, slot: SlotId) -> Option<u8> {
-        self.tank(slot).map(|tank| self.shells.ammo(tank.seat.slot))
+        self.tank(slot).map(|_| self.available_ammo(slot))
+    }
+
+    fn available_ammo(&self, slot: SlotId) -> u8 {
+        let g = self.items.gear(slot);
+        if g.weapon().is_some() {
+            g.ammo.max(u8::from(g.remote.is_some()))
+        } else {
+            self.shells.ammo(slot)
+        }
     }
 
     /// 只计算指定席位的视线。定位坦克和读取弹槽均不需要遍历列表。
@@ -255,13 +278,16 @@ impl World {
     }
 
     fn sight_for(&self, tank: &Tank) -> Sight {
-        let ammo = self.shells.ammo(tank.seat.slot);
+        let ammo = self.available_ammo(tank.seat.slot);
         Sight {
             drive: tank.drive,
             turn: tank.turn,
             fire_down: tank.fire_down,
             enemy_ahead: tank.alive && self.enemy_ahead(tank),
-            can_fire: tank.alive && !tank.fire_down && ammo > 0,
+            can_fire: tank.alive
+                && ammo > 0
+                && (self.items.gear(tank.seat.slot).weapon() == Some(Item::Gatling)
+                    || (!tank.fire_down && self.items.gear(tank.seat.slot).ready <= self.tick)),
             ammo,
         }
     }
@@ -272,8 +298,13 @@ impl World {
             x: velocity.x * i32::from(LIFE),
             y: velocity.y * i32::from(LIFE),
         };
-        let Some((index, hit)) = first_tank(&self.tanks, muzzle, delta, Some(tank.seat.slot))
-        else {
+        let Some((index, hit)) = first_tank(
+            &self.tanks,
+            muzzle,
+            delta,
+            Some(tank.seat.slot),
+            SIZES.shell_radius,
+        ) else {
             return false;
         };
 
@@ -305,6 +336,9 @@ impl World {
         }
 
         // 先按当前炮口位置采样开火，再推进车身和炮弹，顺序与原版控制器一致。
+        if self.items.pool != ItemPool::NONE {
+            self.update_crates();
+        }
         self.fire(&shots);
         self.drive();
         self.fly();
@@ -351,12 +385,13 @@ fn first_tank(
     p: Point,
     d: Point,
     skip: Option<SlotId>,
+    radius: i32,
 ) -> Option<(usize, geometry::Contact)> {
     tanks
         .iter()
         .enumerate()
         .filter(|(_, t)| t.alive && Some(t.seat.slot) != skip)
-        .filter_map(|(i, t)| body(p, d, t, SIZES.shell_radius).map(|h| (i, h)))
+        .filter_map(|(i, t)| body(p, d, t, radius).map(|h| (i, h)))
         .min_by(|(_, a), (_, b)| a.t.cmp(b.t))
 }
 
@@ -372,3 +407,6 @@ pub struct Sight {
 
 #[cfg(test)]
 mod scenarios;
+
+#[cfg(test)]
+mod item_tests;

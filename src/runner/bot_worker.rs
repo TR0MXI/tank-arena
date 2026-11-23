@@ -116,6 +116,7 @@ pub(super) fn work(
                 frame.sight[i],
                 &frame.tanks,
                 &frame.shells,
+                &frame.items,
                 |entered, elapsed| {
                     wake_us = entered.duration_since(published).as_micros() as u64;
                     cost_us = Some(elapsed.as_micros() as u64);

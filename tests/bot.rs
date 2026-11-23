@@ -112,17 +112,36 @@ fn rejects_strings_invalid_updates_and_writes_to_observation() {
 }
 
 #[test]
-fn interrupts_runaway_code_in_setup_and_decision() {
+fn long_finite_loops_finish_in_setup_and_decision() {
     let w = world();
-    let err = load(&w, "while true do end")
-        .err()
-        .expect("setup loop must stop");
-    assert_eq!(Fault::classify(err, true).kind, FaultKind::Budget);
-    let mut bot = load(&w, "return function(_) while true do end end").unwrap();
-    assert_eq!(
-        Fault::classify(bot.decide(&w).unwrap_err(), false).kind,
-        FaultKind::Budget
-    );
+    let mut bot = load(
+        &w,
+        r#"local function count()
+            local n = 0
+            while n < 100000 do n += 1 end
+            return n
+        end
+        local initial = count()
+        return function() return { fire = initial == 100000 and count() == initial } end"#,
+    )
+    .unwrap();
+    assert_eq!(bot.decide(&w).unwrap().fire, Some(true));
+}
+
+#[test]
+fn bot_can_use_more_than_four_mib() {
+    let w = world();
+    let mut bot = load(
+        &w,
+        r#"return function()
+            local data = buffer.create(5 * 1024 * 1024)
+            local last = buffer.len(data) - 1
+            buffer.writeu8(data, last, 42)
+            return { fire = buffer.readu8(data, last) == 42 }
+        end"#,
+    )
+    .unwrap();
+    assert_eq!(bot.decide(&w).unwrap().fire, Some(true));
 }
 
 #[test]

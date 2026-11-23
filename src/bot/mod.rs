@@ -1,15 +1,16 @@
 mod control;
+mod modules;
 mod source;
 mod view;
 
-use crate::sim::{ArenaMap, ClockRules, ControlUpdate, Seat, Shell, Sight, SlotId, Tank, World};
+use crate::sim::{
+    ArenaMap, ClockRules, ControlUpdate, Items, Seat, Shell, Sight, SlotId, Tank, World,
+};
 use bitcode::{Decode, Encode};
 use mlua::{Error, Function, Lua, Result, Value, VmState, chunk::ChunkMode};
 use serde::{Deserialize, Serialize};
 pub use source::{Script, SourceError};
 use std::{
-    cell::Cell,
-    rc::Rc,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -17,18 +18,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-const VM_BYTES: usize = 4 * 1024 * 1024;
-const CHECKPOINTS_PER_CALL: u32 = 10_000;
-
-#[derive(Debug, thiserror::Error)]
-#[error("VM checkpoint budget exhausted")]
-struct Exhausted;
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode)]
 pub enum FaultKind {
     Load,
     Runtime,
     Action,
+    /// 仅用于读取实行过检查点配额的旧回放；保留原编码次序。
     Budget,
     Memory,
 }
@@ -41,9 +36,7 @@ pub struct Fault {
 
 impl Fault {
     pub fn classify(e: Error, loading: bool) -> Self {
-        let kind = if e.downcast_ref::<Exhausted>().is_some() {
-            FaultKind::Budget
-        } else if e
+        let kind = if e
             .chain()
             .any(|e| matches!(e.downcast_ref::<Error>(), Some(Error::MemoryError(_))))
         {
@@ -73,7 +66,6 @@ pub struct LuauBot {
     _lua: Lua,
     function: Function,
     view: view::Observation,
-    remaining: Rc<Cell<u32>>,
 }
 
 impl LuauBot {
@@ -108,11 +100,9 @@ impl LuauBot {
         #[cfg(feature = "luau-native")]
         lua.enable_jit(true); // 不支持原生编译的处理器由 mlua 回退到字节码。
 
-        lua.set_memory_limit(VM_BYTES)?;
         for key in [
             "os",
             "io",
-            "require",
             "debug",
             "loadstring",
             "collectgarbage",
@@ -122,21 +112,14 @@ impl LuauBot {
             lua.globals().raw_set(key, mlua::Nil)?;
         }
 
+        modules::install(&lua, source)?;
         lua.sandbox(true)?;
 
-        let remaining = Rc::new(Cell::new(CHECKPOINTS_PER_CALL));
-        let budget = Rc::clone(&remaining);
+        // 不限制脚本工作量，但停止比赛时仍须能中断初始化和决策中的循环。
         lua.set_interrupt(move |_| {
             if cancel.load(Ordering::Relaxed) {
                 return Err(Error::runtime("match closed"));
             }
-
-            budget.set(
-                budget
-                    .get()
-                    .checked_sub(1)
-                    .ok_or_else(|| Error::external(Exhausted))?,
-            );
             Ok(VmState::Continue)
         });
 
@@ -150,7 +133,6 @@ impl LuauBot {
             _lua: lua,
             function,
             view,
-            remaining,
         })
     }
 
@@ -163,6 +145,7 @@ impl LuauBot {
             sight,
             world.tanks(),
             world.shells(),
+            world.items(),
             |_, _| {},
         )
     }
@@ -173,19 +156,15 @@ impl LuauBot {
         sight: Sight,
         tanks: &[Tank],
         shells: &[Shell],
+        items: &Items,
         measure: impl FnOnce(Instant, Duration),
     ) -> Result<ControlUpdate> {
-        let observation = self.view.update(tick, sight, tanks, shells)?;
-        self.remaining.set(CHECKPOINTS_PER_CALL);
+        let observation = self.view.update(tick, sight, tanks, shells, items)?;
 
         // 只测脚本调用；构造观察表、解析更新以及等待信箱不混入此数。
         let start = Instant::now();
         let result = self.function.call::<Value>(observation);
         measure(start, start.elapsed());
-
-        if self.remaining.get() == 0 {
-            return Err(Error::external(Exhausted));
-        }
 
         control::parse(result?)
     }

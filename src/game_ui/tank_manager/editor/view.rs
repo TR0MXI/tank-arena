@@ -175,7 +175,7 @@ pub(super) fn inspect(
 
         pager(p, e.target, e.models.len(), |i| act(Action::Target(i)));
         if let Some(path) = e.model() {
-            let script = Script::read(path).ok();
+            let script = Script::read_entry(path).ok();
             let active = looks.resolve(path, script.as_ref().map(Script::text));
             let name = script
                 .as_ref()

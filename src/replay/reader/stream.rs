@@ -72,7 +72,8 @@ impl Stream {
             clock,
         )
         .map_err(|e| ReplayIssue::at(1, Problem::Configuration, e))?
-        .with_behavior_seed(header.seed);
+        .with_behavior_seed(header.seed)
+        .with_items(reader.pool);
         if !header
             .roster
             .iter()
@@ -162,8 +163,13 @@ impl Stream {
                 index.table.write_all(&n.to_le_bytes())?;
             }
 
-            let bytes =
-                bitcode::encode(&(state, self.lanes, self.world.cue(), *self.world.hit_ticks()));
+            let bytes = bitcode::encode(&(
+                state,
+                self.world.items().clone(),
+                self.lanes,
+                self.world.cue(),
+                *self.world.hit_ticks(),
+            ));
             index
                 .states
                 .write_all(&(bytes.len() as u32).to_le_bytes())?;
@@ -226,7 +232,10 @@ impl Stream {
                 self.applied = inputs;
                 self.world.step(&controls, &bad);
                 if self.world.events() != events
-                    || self.hasher.digest(&self.world.checkpoint()) != expected
+                    || self
+                        .hasher
+                        .digest(&self.world.checkpoint(), self.world.items())
+                        != expected
                 {
                     return Err(self.err(Problem::StateMismatch, "events or state digest mismatch"));
                 }
@@ -248,7 +257,10 @@ impl Stream {
                 }
                 if self.world.tick() != tick
                     || self.world.outcome() != Some(outcome)
-                    || self.hasher.digest(&self.world.checkpoint()) != expected
+                    || self
+                        .hasher
+                        .digest(&self.world.checkpoint(), self.world.items())
+                        != expected
                 {
                     return Err(self.err(Problem::StateMismatch, "terminal state mismatch"));
                 }
@@ -277,7 +289,9 @@ impl Stream {
         index.states.read_exact(&mut len)?;
         let mut bytes = vec![0; u32::from_le_bytes(len) as usize];
         index.states.read_exact(&mut bytes)?;
-        let (c, lanes, cue, hits) = bitcode::decode(&bytes).map_err(invalid)?;
+        let (c, items, lanes, cue, hits) = bitcode::decode(&bytes).map_err(invalid)?;
+        // 先恢复道具弹标记，重建普通弹槽时不能把霰弹或破片算进去。
+        self.world.restore_items(items);
         self.world.restore(c);
         self.world.restore_cues(cue, hits);
         self.lanes = lanes;

@@ -22,7 +22,7 @@ use std::{
         mpsc,
     },
     thread::{self, JoinHandle},
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 #[derive(Clone, Debug)]
@@ -84,12 +84,22 @@ impl LiveMatch {
     pub fn start(
         map: Arc<ArenaMap>,
         clock: ClockRules,
+        bots: Vec<Entrant>,
+        log: impl MatchLog,
+    ) -> Result<Self, StartError> {
+        Self::start_with_items(map, clock, bots, ItemPool::NONE, log)
+    }
+    pub fn start_with_items(
+        map: Arc<ArenaMap>,
+        clock: ClockRules,
         mut bots: Vec<Entrant>,
+        pool: ItemPool,
         log: impl MatchLog,
     ) -> Result<Self, StartError> {
         bots.sort_unstable_by_key(|b| b.seat.slot);
         let world = World::new(map.clone(), bots.iter().map(|e| e.seat).collect(), clock)?
-            .with_behavior_seed(Some(fastrand::u64(..)));
+            .with_behavior_seed(Some(fastrand::u64(..)))
+            .with_items(pool);
         let stats = vec![SlotStats::default(); bots.len()];
         let latest = Arc::new(Mutex::new(Arc::new(Frame::new(&world, &stats, 0))));
         let cancel = Arc::new(AtomicBool::default());
@@ -129,11 +139,6 @@ impl Drop for LiveMatch {
             let _ = thread.join();
         }
     }
-}
-
-fn at_tick(tick: u64) -> Duration {
-    let hz = u64::from(HZ);
-    Duration::new(tick / hz, ((tick % hz) * 1_000_000_000 / hz) as u32)
 }
 
 fn run(
@@ -207,7 +212,7 @@ fn run(
         pacer::configure_clock_thread();
 
         let mut late_us = 0;
-        let mut epoch = None;
+        let mut pacing = pacer::TickPacer::default();
         let mut inputs = Vec::with_capacity(MAX_SLOTS);
         let mut frames = Vec::with_capacity(MAX_SLOTS);
         let mut bad = Vec::with_capacity(MAX_SLOTS);
@@ -228,31 +233,22 @@ fn run(
 
             let mut s = ex.state.lock().unwrap();
             let published = Instant::now();
-            let start = *epoch.get_or_insert(published);
+            let tick = world.tick();
+            let deadline = pacing.deadline(tick, published);
             s.latest = Some((snapshot, published));
             drop(s);
             ex.changed.notify_all();
-
-            let tick = world.tick();
-            let deadline = start + at_tick(tick + 1);
-            if published >= deadline {
-                world.invalidate(Outcome::HostOverload);
-                continue;
-            }
 
             pacer::wait_until(deadline);
             let mut s = ex.state.lock().unwrap();
             let now = Instant::now();
             s.latest = None;
+            // 即使裁判晚醒，也按已发布的截止线收输入，只推进一个物理步。
             let sealed = s.mailbox.seal(deadline);
             drop(s);
 
             late_us = now.saturating_duration_since(deadline).as_micros() as u64;
             lateness.add(late_us);
-            if now >= start + at_tick(tick + 2) {
-                world.invalidate(Outcome::HostOverload);
-                continue;
-            }
             if ex.cancel.load(Ordering::Acquire) || lost.load(Ordering::Acquire) {
                 continue;
             }

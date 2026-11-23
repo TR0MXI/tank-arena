@@ -16,6 +16,7 @@ pub(super) struct Source<'w> {
 pub(super) struct Scene<'a> {
     pub map: &'a ArenaMap,
     pub tanks: &'a [Tank],
+    pub items: &'a tank_arena::sim::Items,
     pub shells: &'a [Shell],
     pub cue: Option<Event>,
     pub tick: u64,
@@ -35,6 +36,7 @@ impl Source<'_> {
                     map: &self.field.map,
                     tanks: &f.tanks,
                     shells: &f.shells,
+                    items: &f.items,
                     cue: f.cue,
                     tick: f.tick,
                     hits: &f.hit_ticks,
@@ -53,6 +55,7 @@ impl Source<'_> {
                     map: w.map(),
                     tanks: w.tanks(),
                     shells: w.shells(),
+                    items: w.items(),
                     cue: w.cue(),
                     tick: w.tick(),
                     hits: w.hit_ticks(),

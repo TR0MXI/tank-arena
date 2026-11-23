@@ -1,4 +1,5 @@
 use super::*;
+use std::time::Duration;
 
 fn seats() -> Vec<Entrant> {
     let src = Script::from_source(
@@ -67,4 +68,31 @@ fn host_unwind_wakes_sleeping_workers_before_scope_join() {
             .expect("match teardown deadlocked")
     );
     assert!(token.upgrade().is_none());
+}
+
+#[test]
+fn host_stall_preserves_the_match_and_consecutive_recorded_ticks() {
+    struct StallOnce(mpsc::Sender<(u64, u64)>);
+    impl MatchLog for StallOnce {
+        fn step(&mut self, tick: u64, world: &World, _: &[Applied]) {
+            if tick == 0 {
+                thread::sleep(Duration::from_millis(80)); // 故意让下次发布跨过多个截止时刻。
+            }
+            let _ = self.0.send((tick, world.tick()));
+        }
+    }
+    let (tx, rx) = mpsc::channel();
+    let live = LiveMatch::start(
+        Arc::new(SWITCHYARD.parse().unwrap()),
+        ClockRules::unlimited(),
+        seats(),
+        StallOnce(tx),
+    )
+    .unwrap();
+    for i in 0..5 {
+        assert_eq!(rx.recv_timeout(Duration::from_secs(4)).unwrap(), (i, i + 1));
+    }
+    assert_eq!(live.latest().outcome, None);
+    live.stop();
+    live.join().unwrap();
 }

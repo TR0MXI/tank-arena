@@ -1,5 +1,8 @@
 //! 纯 Rust 裁判：不读取文件、时钟或渲染实体。
 
+// Official arena and replay format always have eight seats.
+const ROSTER_CAPACITY: usize = 8;
+
 mod balance;
 mod geometry;
 mod map;

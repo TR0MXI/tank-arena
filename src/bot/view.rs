@@ -2,8 +2,8 @@
 
 use super::BotConfig;
 use crate::sim::{
-    AMMO, CELL, Drive, FORWARD_SPEED, HZ, Heading, LIFE, MAX_SLOTS, REVERSE_SPEED, SIZES, Shell,
-    Sight, SlotId, Tank, Turn, WALL_HALF,
+    AMMO, CELL, Drive, FORWARD_SPEED, HZ, Heading, Items, LIFE, MAX_CRATES, MAX_SLOTS,
+    REVERSE_SPEED, SIZES, Shell, Sight, SlotId, Tank, Turn, WALL_HALF,
 };
 use mlua::{Lua, Result, Table};
 
@@ -14,6 +14,8 @@ fn units(n: i32) -> f64 {
 
 /// 所有行及容器都由宿主持有；清掉尾部索引但不丢掉行的分配。
 struct Rows {
+    lua: Lua,
+    fields: usize,
     table: Table,
     pool: Vec<Table>,
     len: usize,
@@ -28,6 +30,8 @@ impl Rows {
         table.set_readonly(true);
 
         Ok(Self {
+            lua: lua.clone(),
+            fields,
             table,
             pool,
             len: 0,
@@ -35,6 +39,10 @@ impl Rows {
     }
 
     fn update<T>(&mut self, items: &[T], write: impl Fn(&Table, &T) -> Result<()>) -> Result<()> {
+        while self.pool.len() < items.len() {
+            self.pool
+                .push(self.lua.create_table_with_capacity(0, self.fields)?);
+        }
         if items.len() != self.len {
             self.table.set_readonly(false);
             for i in self.len..items.len() {
@@ -64,6 +72,7 @@ pub(super) struct Observation {
     table: Table,
     tanks: Rows,
     shells: Rows,
+    crates: Rows,
 }
 
 impl Observation {
@@ -72,6 +81,8 @@ impl Observation {
         let tanks = Rows::new(lua, MAX_SLOTS, 6)?;
         let shells = Rows::new(lua, MAX_SLOTS * usize::from(AMMO), 8)?;
 
+        let crates = Rows::new(lua, MAX_CRATES, 3)?;
+        table.raw_set("crates", &crates.table)?;
         // 子表只绑定一次；后续只更新行内容和可见长度。
         table.raw_set("tanks", &tanks.table)?;
         table.raw_set("shells", &shells.table)?;
@@ -81,6 +92,7 @@ impl Observation {
             table,
             tanks,
             shells,
+            crates,
         })
     }
 
@@ -126,6 +138,7 @@ impl Observation {
         sight: Sight,
         tanks: &[Tank],
         shells: &[Shell],
+        items: &Items,
     ) -> Result<&Table> {
         let table = &self.table;
         table.set_readonly(false);
@@ -139,9 +152,18 @@ impl Observation {
             row.raw_set("alive", tank.alive)?;
             row.raw_set("x", units(tank.center.x))?;
             row.raw_set("y", units(tank.center.y))?;
+            let gear = items.gear(tank.seat.slot);
+            row.raw_set("weapon", gear.weapon().map(|k| k.key()))?;
+            row.raw_set("shield_ticks", gear.shield_until.saturating_sub(tick))?;
+            row.raw_set("speed_ticks", gear.boost_until.saturating_sub(tick))?;
             row.raw_set("heading", tank.heading.bearing_units())
         })?;
 
+        self.crates.update(&items.crates, |row, c| {
+            row.raw_set("kind", c.item.key())?;
+            row.raw_set("x", units(c.center.x))?;
+            row.raw_set("y", units(c.center.y))
+        })?;
         self.shells.update(shells, |row, shell| {
             row.raw_set("id", shell.id)?;
             row.raw_set("owner", shell.owner.0)?;
@@ -149,7 +171,12 @@ impl Observation {
             row.raw_set("y", units(shell.center.y))?;
             row.raw_set("vx", units(shell.velocity.x))?;
             row.raw_set("vy", units(shell.velocity.y))?;
-            row.raw_set("deadly_to_owner", shell.deadly_to_owner())?;
+            let p = items.projectiles.get(&shell.id);
+            row.raw_set("kind", p.map_or("bullet", |p| p.kind.key()))?;
+            row.raw_set(
+                "deadly_to_owner",
+                shell.deadly_to_owner() || p.is_some_and(|p| p.can_hit_owner()),
+            )?;
             row.raw_set("life", shell.life)
         })?;
 

@@ -6,9 +6,11 @@ mod encoder;
 mod tests;
 
 use super::{Record, invalid};
+use crate::sim::ItemPool;
 pub(super) use decoder::Decoder;
 pub(super) use encoder::Encoder;
 use std::io;
+const ITEM_MAGIC: &[u8; 8] = b"TANKREC\x06";
 
 const MAGIC: &[u8; 8] = b"TANKREC\x05";
 const TARGET: usize = 32 * 1024;

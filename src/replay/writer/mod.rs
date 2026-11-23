@@ -20,7 +20,7 @@ const QUEUE_CAPACITY: usize = 128;
 
 struct Spool {
     skins: SeatSkins,
-    rx: Receiver<Record>,
+    rx: Receiver<(Record, ItemPool)>,
     status: Recording,
     path: PathBuf,
 }
@@ -28,8 +28,12 @@ struct Spool {
 impl Spool {
     fn run(self) {
         let saved = atomic_file::publish(&self.path, |out| {
-            let mut enc = codec::Encoder::with_skins(out, &self.skins)?;
-            for record in &self.rx {
+            let mut records = self.rx.iter();
+            let (first, pool) = records
+                .next()
+                .ok_or_else(|| io::Error::from(io::ErrorKind::Interrupted))?;
+            let mut enc = codec::Encoder::with_items(out, &self.skins, pool)?;
+            for record in std::iter::once(first).chain(records.map(|(r, _)| r)) {
                 self.status.0.queued.fetch_sub(1, Ordering::Relaxed);
                 let finished = matches!(record, Record::End { .. });
                 enc.push(record)?;
@@ -51,7 +55,8 @@ impl Spool {
 }
 
 pub struct Recorder {
-    tx: Option<SyncSender<Record>>,
+    tx: Option<SyncSender<(Record, ItemPool)>>,
+    pool: ItemPool,
     worker: Option<JoinHandle<()>>,
     status: Recording,
     path: PathBuf,
@@ -105,6 +110,7 @@ impl Recorder {
         (
             Self {
                 tx: Some(tx),
+                pool: ItemPool::NONE,
                 worker: None,
                 status,
                 path,
@@ -121,7 +127,7 @@ impl Recorder {
 
         let counts = &self.status.0;
         let n = counts.queued.fetch_add(1, Ordering::Relaxed) + 1;
-        match tx.try_send(r) {
+        match tx.try_send((r, self.pool)) {
             Ok(()) => {
                 counts
                     .peak
@@ -157,6 +163,7 @@ impl Drop for Recorder {
 
 impl MatchLog for Recorder {
     fn start(&mut self, w: &World, bots: &[Entrant], faults: &[(SlotId, Fault)]) {
+        self.pool = w.items().pool;
         let header = Header {
             seed: w.behavior_seed(),
             map: w.map().source().into(),
@@ -173,7 +180,7 @@ impl MatchLog for Recorder {
                         .script
                         .as_ref()
                         .ok()
-                        .map(|s| blake3::hash(s.text().as_bytes()).to_hex().to_string()),
+                        .map(|s| s.blake3().to_hex().to_string()),
                 })
                 .collect(),
             init_faults: faults.into(),
@@ -191,7 +198,7 @@ impl MatchLog for Recorder {
         }
 
         let state = w.checkpoint();
-        let digest = self.hasher.digest(&state);
+        let digest = self.hasher.digest(&state, w.items());
         self.send(Record::Step {
             applied_tick: tick,
             inputs: inputs.into(),
@@ -228,7 +235,7 @@ impl MatchLog for Recorder {
 
     fn finish(&mut self, w: &World) {
         let outcome = w.outcome().expect("finished match");
-        let hash = self.hasher.digest(&w.checkpoint());
+        let hash = self.hasher.digest(&w.checkpoint(), w.items());
         let result = serde_json::json!({
             "tick": w.tick(),
             "outcome": outcome,

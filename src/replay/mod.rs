@@ -34,7 +34,7 @@ pub struct BotInfo {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct Header {
-    /// 行为根种子。地图始终单独记录完整布局，物理播放不使用随机数。
+    /// 开局种子。地图记录完整布局；启用道具时由此重建确定性的掉落和散布。
     pub seed: Option<u64>,
     pub map: String,
     pub tick_hz: u32,
@@ -66,8 +66,13 @@ enum Record {
 struct StateHasher(bitcode::Buffer);
 
 impl StateHasher {
-    fn digest(&mut self, state: &Checkpoint) -> [u8; 32] {
-        *blake3::hash(self.0.encode(state)).as_bytes()
+    fn digest(&mut self, state: &Checkpoint, items: &Items) -> [u8; 32] {
+        let mut hash = blake3::Hasher::new();
+        hash.update(self.0.encode(state));
+        if items.pool != ItemPool::NONE {
+            hash.update(self.0.encode(items));
+        }
+        *hash.finalize().as_bytes()
     }
 }
 

@@ -2,6 +2,7 @@ mod board;
 mod draft;
 mod grouping;
 mod hangar;
+mod items;
 mod profiles;
 mod team_scroll;
 
@@ -125,7 +126,7 @@ fn start(
     field: Res<Field>,
     mut game: ResMut<battle::LiveSession>,
     (current, mut page): (Res<State<Page>>, ResMut<NextState<Page>>),
-    looks: Res<tank_manager::Looks>,
+    (looks, prefs): (Res<tank_manager::Looks>, Res<locale::Preferences>),
     (mut images, mut art): (arena_view::VehicleImages, ResMut<arena_view::MatchArt>),
 ) {
     // 两次激活可能在同一帧到达；不重复创建 VM 或录制文件。
@@ -151,9 +152,20 @@ fn start(
     }
 
     let launch = || -> Result<_, String> {
+        // 同一车型的所有席位共享一份开局源码快照，但不共享 VM。
+        let mut snapshots = std::collections::BTreeMap::new();
         let bots: Vec<_> = seats
             .into_iter()
-            .map(|s| Entrant::from_file(s, &d.tank(s.slot).unwrap().model))
+            .map(|seat| {
+                let path = &d.tank(seat.slot).unwrap().model;
+                let first = snapshots
+                    .entry(path)
+                    .or_insert_with(|| Entrant::from_file(seat, path));
+                Entrant {
+                    seat,
+                    ..first.clone()
+                }
+            })
             .collect();
         let names = bots.iter().map(|b| b.name.clone()).collect();
         let dir = tempfile::tempdir().map_err(|_| tr("missingDir"))?;
@@ -167,10 +179,11 @@ fn start(
 
         let models = images.for_roster(bots.iter().map(|b| b.seat.slot), &skins);
         let (rec, status) = Recorder::with_skins(dir.path(), skins);
-        let live = LiveMatch::start(field.map.clone(), clock, bots, rec).map_err(|e| match e {
-            StartError::Configuration(e) => draft::config_error(e),
-            StartError::Thread(_) => tr("workerLost"),
-        })?;
+        let live = LiveMatch::start_with_items(field.map.clone(), clock, bots, prefs.items, rec)
+            .map_err(|e| match e {
+                StartError::Configuration(e) => draft::config_error(e),
+                StartError::Thread(_) => tr("workerLost"),
+            })?;
         Ok((live, names, status, clock, dir, models))
     };
     match launch() {

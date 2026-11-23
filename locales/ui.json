@@ -334,7 +334,7 @@
   },
   "memoryFault": {
     "zh-CN": "内存不足",
-    "en": "Memory limit"
+    "en": "Out of memory"
   },
   "replayAt": {
     "zh-CN": "第 %{line} 条记录：%{reason}",
@@ -529,8 +529,8 @@
     "en": "Lineup full"
   },
   "emptyModels": {
-    "zh-CN": "将 .luau 脚本放入 bots/。",
-    "en": "Add a .luau script to bots/."
+    "zh-CN": "在 bots/ 中添加 .luau 文件或含 bot.luau 的目录。",
+    "en": "Add a .luau file or a folder with bot.luau to bots/."
   },
   "tankManager": {
     "zh-CN": "坦克管理",
@@ -653,8 +653,8 @@
     "en": "No saved designs"
   },
   "noSkinTarget": {
-    "zh-CN": "暂无脚本。将 .luau 文件放入 bots/。",
-    "en": "No scripts. Add a .luau file to bots/."
+    "zh-CN": "暂无策略。在 bots/ 中添加 .luau 文件或含 bot.luau 的目录。",
+    "en": "No strategies. Add a .luau file or a folder with bot.luau to bots/."
   },
   "needTeamPixel": {
     "zh-CN": "请至少保留 %{min} 个队色细格，再保存或应用。",
@@ -711,5 +711,141 @@
   "addToTeam": {
     "zh-CN": "加入第 %{n} 队",
     "en": "Add to Team %{n}"
+  },
+  "crateManager": {
+    "zh-CN": "道具管理",
+    "en": "Crate loadout"
+  },
+  "cratePoolHint": {
+    "zh-CN": "选择箱子查看数据；带「−」的不刷新。",
+    "en": "Select to inspect. Crates marked − do not spawn."
+  },
+  "disableCrate": {
+    "zh-CN": "禁用此箱",
+    "en": "Disable crate"
+  },
+  "enableCrate": {
+    "zh-CN": "启用此箱",
+    "en": "Enable crate"
+  },
+  "crateAmmo": {
+    "zh-CN": "弹量",
+    "en": "Ammo"
+  },
+  "pellets": {
+    "zh-CN": "弹丸",
+    "en": "Pellets"
+  },
+  "shards": {
+    "zh-CN": "破片",
+    "en": "Shards"
+  },
+  "volley": {
+    "zh-CN": "轮",
+    "en": "volley"
+  },
+  "untilHoming": {
+    "zh-CN": "后追踪",
+    "en": "to lock on"
+  },
+  "untilArmed": {
+    "zh-CN": "后武装",
+    "en": "to arm"
+  },
+  "warmup": {
+    "zh-CN": "预热",
+    "en": "spin-up"
+  },
+  "shot": {
+    "zh-CN": "发",
+    "en": "shot"
+  },
+  "fuse": {
+    "zh-CN": "引信",
+    "en": "fuse"
+  },
+  "maxLife": {
+    "zh-CN": "上限",
+    "en": "max"
+  },
+  "duration": {
+    "zh-CN": "持续",
+    "en": "Duration"
+  },
+  "radius": {
+    "zh-CN": "半径",
+    "en": "Radius"
+  },
+  "laser": {
+    "zh-CN": "激光",
+    "en": "Laser"
+  },
+  "doubleBarrel": {
+    "zh-CN": "双管炮",
+    "en": "Twin gun"
+  },
+  "shotgun": {
+    "zh-CN": "霰弹枪",
+    "en": "Shotgun"
+  },
+  "homingMissile": {
+    "zh-CN": "追踪导弹",
+    "en": "Missile"
+  },
+  "mine": {
+    "zh-CN": "地雷",
+    "en": "Mine"
+  },
+  "gatling": {
+    "zh-CN": "加特林",
+    "en": "Gatling"
+  },
+  "fragBomb": {
+    "zh-CN": "破片炸弹",
+    "en": "Frag bomb"
+  },
+  "shield": {
+    "zh-CN": "护盾",
+    "en": "Shield"
+  },
+  "speedBoost": {
+    "zh-CN": "加速",
+    "en": "Boost"
+  },
+  "laserInfo": {
+    "zh-CN": "预览反射路径，发射高速激光。",
+    "en": "Aim along the ricochet guide and fire a fast beam."
+  },
+  "doubleBarrelInfo": {
+    "zh-CN": "每次扣动扳机，从左右炮管交替开火。",
+    "en": "Each trigger press fires from the alternate barrel."
+  },
+  "shotgunInfo": {
+    "zh-CN": "一次打出扇形弹幕，适合封锁走廊。",
+    "en": "Fire a fan of pellets across a corridor."
+  },
+  "homingMissileInfo": {
+    "zh-CN": "先直飞，再沿迷宫追踪附近的坦克，也可能追上自己。",
+    "en": "Flies straight, then seeks the nearest tank through the maze—even its owner."
+  },
+  "mineInfo": {
+    "zh-CN": "在车后布雷，武装后被坦克触发，延时炸出破片。",
+    "en": "Drop behind the hull. After arming, contact starts the burst fuse."
+  },
+  "gatlingInfo": {
+    "zh-CN": "按住开火预热并连续扫射，松开停止。",
+    "en": "Hold fire to spin up and shoot continuously. Release to stop."
+  },
+  "fragBombInfo": {
+    "zh-CN": "按一次发射，再按一次引爆；破片能击中自己。",
+    "en": "Fire to launch; press again to detonate. Shards can hit the launcher."
+  },
+  "shieldInfo": {
+    "zh-CN": "拾取后立即生成护盾，弹开来弹。",
+    "en": "Reflects incoming shots immediately on pickup."
+  },
+  "speedBoostInfo": {
+    "zh-CN": "提高前进、倒车、转向和普通／双管炮弹速度，不提高射速。",
+    "en": "Boosts movement, turning, and normal/twin shot speed; not fire rate."
   }
 }

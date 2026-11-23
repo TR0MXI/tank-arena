@@ -8,9 +8,12 @@ pub(super) struct Shells {
 }
 
 impl Shells {
-    pub(super) fn from_rounds(rounds: Vec<Shell>) -> Self {
+    pub(super) fn from_rounds(rounds: Vec<Shell>, items: &Items) -> Self {
         let mut remaining = [AMMO; MAX_SLOTS];
-        for shell in &rounds {
+        for shell in rounds
+            .iter()
+            .filter(|s| !items.projectiles.contains_key(&s.id))
+        {
             remaining[shell.owner.0 as usize - 1] -= 1;
         }
         Self { rounds, remaining }
@@ -29,12 +32,22 @@ impl Shells {
         self.rounds.push(shell);
     }
 
-    pub(super) fn retain_mut(&mut self, mut survives: impl FnMut(&mut Shell) -> bool) {
+    pub(super) fn push_special(&mut self, shell: Shell) {
+        self.rounds.push(shell);
+    }
+
+    pub(super) fn retain_mut(
+        &mut self,
+        meta: &mut std::collections::BTreeMap<u64, Payload>,
+        mut survives: impl FnMut(&mut Shell, Option<&mut Payload>) -> bool,
+    ) {
         self.rounds.retain_mut(|shell| {
-            if survives(shell) {
+            if survives(shell, meta.get_mut(&shell.id)) {
                 return true;
             }
-            self.remaining[shell.owner.0 as usize - 1] += 1;
+            if meta.remove(&shell.id).is_none() {
+                self.remaining[shell.owner.0 as usize - 1] += 1;
+            }
             false
         });
     }

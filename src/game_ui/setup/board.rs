@@ -170,6 +170,9 @@ pub(super) fn render(
                     });
                 }
             });
+            if !lineup {
+                items::manager(p, &d, prefs.items);
+            }
             let notices = p
                 .spawn(notice_box())
                 .with_children(|p| notes(p, &valid, &field, &d))

@@ -198,3 +198,36 @@ fn seed_survives_recording_and_is_independent_of_layout() {
         assert_eq!(p.header.map, w.map().source());
     }
 }
+
+#[test]
+fn header_uses_the_frozen_package_digest_not_the_current_files_or_just_the_entry() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (mut world, mut bots) = arena();
+    let entry = tmp.path().join("bot.luau");
+    let module = tmp.path().join("decision.luau");
+    fs::write(&entry, "return require('./decision')").unwrap();
+    fs::write(&module, "return function() end").unwrap();
+    bots[0] = Entrant::from_file(bots[0].seat, &entry);
+    let frozen = bots[0].script.as_ref().unwrap().blake3();
+    fs::write(module, "return function() return {fire=true} end").unwrap();
+    let (mut recorder, status) = Recorder::new(tmp.path());
+    recorder.start(&world, &bots, &[]);
+    world.stop();
+    recorder.finish(&world);
+    let RecordStatus::Saved(path) = status.status() else {
+        panic!("missing replay")
+    };
+    let header = Playback::open(&path).unwrap().header;
+    assert_eq!(
+        header.roster[0].script_blake3.as_deref(),
+        Some(frozen.to_hex().as_str())
+    );
+    assert_eq!(
+        header.roster[1].script_blake3.as_deref(),
+        Some(
+            blake3::hash(bots[1].script.as_ref().unwrap().text().as_bytes())
+                .to_hex()
+                .as_str()
+        )
+    );
+}

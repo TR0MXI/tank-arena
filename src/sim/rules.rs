@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::num::NonZeroU64;
 use thiserror::Error;
 
-pub const MAX_SLOTS: usize = 8;
+pub const MAX_SLOTS: usize = super::ROSTER_CAPACITY;
 
 #[derive(
     Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Encode, Decode,

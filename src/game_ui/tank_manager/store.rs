@@ -97,8 +97,9 @@ impl Looks {
     }
 
     pub(in crate::game_ui) fn preview(&self, model: &Path) -> Option<PixelSkin> {
-        self.resolve(model, None)
-            .or_else(|| PixelSkin::from_script(tank_arena::bot::Script::read(model).ok()?.text()))
+        self.resolve(model, None).or_else(|| {
+            PixelSkin::from_script(tank_arena::bot::Script::read_entry(model).ok()?.text())
+        })
     }
 
     // 整座涂装库成功落盘后，才向运行中的游戏发布变更。
