@@ -1,7 +1,7 @@
 use super::*;
 
 /// Selection and enablement are independent, so a disabled crate can still be inspected.
-pub(super) fn manager(p: &mut ChildSpawnerCommands, d: &Draft, pool: ItemPool) {
+pub(super) fn manager(p: &mut ChildSpawnerCommands, d: &Draft, pool: ItemPool, art: &Art) {
     let item = d.inspecting;
     let enabled = pool.contains(item);
     let name = |k: Item| tr(k.key());
@@ -30,18 +30,40 @@ pub(super) fn manager(p: &mut ChildSpawnerCommands, d: &Draft, pool: ItemPool) {
                 } else {
                     format!("− {}", name(k))
                 };
-                p.spawn(toggle(&text, item == k, move |d| d.inspecting = k));
+                let selected = item == k;
+                let (base, over, fg) = if selected {
+                    (ink(), quiet(), Color::WHITE)
+                } else {
+                    (
+                        Color::srgb_u8(230, 235, 225),
+                        Color::srgb_u8(213, 223, 209),
+                        ink(),
+                    )
+                };
+                p.spawn((
+                    Button,
+                    AccessibleLabel::new(text.clone()),
+                    surface(base, over),
+                    Node {
+                        height: px(36),
+                        padding: UiRect::horizontal(px(6)),
+                        column_gap: px(5),
+                        align_items: AlignItems::Center,
+                        border_radius: BorderRadius::all(px(8)),
+                        ..default()
+                    },
+                    children![
+                        art.item_badge(k, 24.),
+                        (label(text, 15., fg), Pickable::IGNORE)
+                    ],
+                    observe(move |_: On<Activate>, mut d: ResMut<Draft>| d.inspecting = k),
+                ));
             }
         });
         p.spawn(spread()).with_children(|p| {
             p.spawn(column(2.)).with_children(|p| {
                 p.spawn(label(
-                    format!(
-                        "[{}] {} · {}",
-                        item.symbol(),
-                        name(item),
-                        tr(&format!("{}Info", item.key()))
-                    ),
+                    format!("{} · {}", name(item), tr(&format!("{}Info", item.key()))),
                     16.,
                     ink(),
                 ));

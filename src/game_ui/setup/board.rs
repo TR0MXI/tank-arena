@@ -56,7 +56,7 @@ pub(super) fn render(
     mut c: Commands,
     section: Res<Section>,
     d: Res<Draft>,
-    (field, preview): (Res<Field>, Res<Preview>),
+    (field, preview, art): (Res<Field>, Res<Preview>, Res<Art>),
     prefs: Res<locale::Preferences>,
     profiles: Res<Profiles>,
     mut old: Query<(Entity, Option<&mut LineupAreas>), With<Sheet>>,
@@ -171,7 +171,7 @@ pub(super) fn render(
                 }
             });
             if !lineup {
-                items::manager(p, &d, prefs.items);
+                items::manager(p, &d, prefs.items, &art);
             }
             let notices = p
                 .spawn(notice_box())

@@ -3,6 +3,7 @@
 use super::*;
 use bevy::image::ImageSampler;
 use std::collections::HashMap;
+use tank_arena::sim::Item;
 
 #[derive(Component, Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(super) enum Icon {
@@ -40,6 +41,7 @@ impl Icon {
 #[derive(Resource)]
 pub(super) struct Art {
     pub(super) duel: Handle<Image>,
+    pub(super) item_badges: Handle<Image>,
     icons: HashMap<Icon, Handle<Image>>,
 }
 
@@ -62,6 +64,7 @@ impl FromWorld for Art {
         ];
         Self {
             duel: load(artwork::DUEL),
+            item_badges: load(artwork::ITEM_BADGES),
             icons: files
                 .into_iter()
                 .map(|(icon, path)| (icon, load(path)))
@@ -70,7 +73,30 @@ impl FromWorld for Art {
     }
 }
 
+/// The badge sheet has three 64 px cells per row, in `Item::ALL` order.
+pub(super) fn item_rect(item: Item) -> Rect {
+    let index = item as usize;
+    let min = Vec2::new((index % 3) as f32, (index / 3) as f32) * 64.;
+    Rect::from_corners(min, min + Vec2::splat(64.))
+}
+
 impl Art {
+    pub(super) fn item_badge(&self, item: Item, size: f32) -> impl Bundle {
+        (
+            ImageNode {
+                rect: Some(item_rect(item)),
+                ..ImageNode::new(self.item_badges.clone())
+            },
+            Node {
+                width: px(size),
+                height: px(size),
+                flex_shrink: 0.,
+                ..default()
+            },
+            Pickable::IGNORE,
+        )
+    }
+
     pub(super) fn icon_button(
         &self,
         icon: Icon,

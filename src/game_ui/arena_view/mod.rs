@@ -124,7 +124,7 @@ pub(super) fn draw(
     field: Res<Field>,
     replay: Option<Res<player::ReplaySession>>,
     palette: Res<Palette>,
-    art: Res<MatchArt>,
+    (art, ui_art): (Res<MatchArt>, Res<Art>),
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     let page = *state.get();
@@ -144,7 +144,7 @@ pub(super) fn draw(
         floor::spawn(p, map, &mut meshes, &palette);
         walls::spawn(p, map, &mut meshes, &palette);
         annotations::spawn(p, &palette);
-        supplies::spawn(p, &mut meshes, &palette);
+        supplies::spawn(p, &mut meshes, &palette, &ui_art.item_badges);
         for i in 0..MAX_SLOTS {
             let tr = Transform::from_scale(Vec3::new(size / CELL as f32, size / CELL as f32, 1.));
             art.0

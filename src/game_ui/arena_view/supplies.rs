@@ -1,4 +1,4 @@
-//! One vertex-coloured overlay for crates, power shots and active effects. Pellet bursts
+//! Pooled badge sprites for crates and equipment; one overlay for shots and effects. Pellet bursts
 //! can exceed the original forty normal-shell sprites without creating per-pellet entities.
 use super::*;
 use bevy::{
@@ -46,7 +46,12 @@ impl Drawing {
         .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, self.col)
     }
 }
-pub(super) fn spawn(p: &mut ChildSpawnerCommands, mesh: &mut Assets<Mesh>, palette: &Palette) {
+pub(super) fn spawn(
+    p: &mut ChildSpawnerCommands,
+    mesh: &mut Assets<Mesh>,
+    palette: &Palette,
+    badges: &Handle<Image>,
+) {
     p.spawn((
         Overlay,
         NoFrustumCulling,
@@ -58,12 +63,7 @@ pub(super) fn spawn(p: &mut ChildSpawnerCommands, mesh: &mut Assets<Mesh>, palet
     for i in 0..MAX_CRATES + MAX_SLOTS {
         p.spawn((
             Badge(i),
-            Text2d::new(""),
-            TextFont {
-                font_size: FontSize::Px(15.),
-                ..default()
-            },
-            TextColor(Color::WHITE),
+            Sprite::from_image(badges.clone()),
             Visibility::Hidden,
         ));
     }
@@ -87,7 +87,7 @@ pub(super) fn paint(
     source: source::Source,
     mut last: Local<Option<u64>>,
     overlay: Query<(&Mesh2d, &mut Visibility), With<Overlay>>,
-    mut badges: Query<(&Badge, &mut Text2d, &mut Transform, &mut Visibility), Without<Overlay>>,
+    mut badges: Query<(&Badge, &mut Sprite, &mut Transform, &mut Visibility), Without<Overlay>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     let Some(s) = source.scene() else {
@@ -103,13 +103,9 @@ pub(super) fn paint(
     let mut draw = Drawing::default();
     let size = tile(s.map);
     let pos = |p| xy(p, s.map);
-    let mut labels: [Option<(Vec2, &str, f32)>; MAX_CRATES + MAX_SLOTS] = Default::default();
+    let mut placements: [Option<(Vec2, Item, f32)>; MAX_CRATES + MAX_SLOTS] = Default::default();
     for (i, c) in s.items.crates.iter().enumerate() {
-        let p = pos(c.center);
-        let r = (size * 0.16).max(6.);
-        draw.box_at(p, r, ink());
-        draw.box_at(p, r * 0.85, color(c.item));
-        labels[i] = Some((p, c.item.symbol(), r * 1.15));
+        placements[i] = Some((pos(c.center), c.item, (size * 0.36).clamp(14., 34.)));
     }
     for (i, t) in s.tanks.iter().enumerate().filter(|(_, t)| t.alive) {
         let p = pos(t.center);
@@ -122,9 +118,9 @@ pub(super) fn paint(
             }
         }
         if let Some(k) = g.weapon() {
-            let b = p + Vec2::Y * size * 0.35;
-            draw.box_at(b, 6., color(k));
-            labels[MAX_CRATES + i] = Some((b, k.symbol(), 10.));
+            let side = (size * 0.23).clamp(12., 21.);
+            let b = p + Vec2::Y * (size * 0.27 + side * 0.5);
+            placements[MAX_CRATES + i] = Some((b, k, side));
             if k == Item::Laser && g.ammo > 0 {
                 for (a, b) in laser_guide(s.map, t, s.tanks) {
                     draw.line(pos(a), pos(b), 0.8, Color::srgba(1., 0.3, 0.4, 0.5));
@@ -173,13 +169,15 @@ pub(super) fn paint(
             *m = draw.mesh();
         }
     }
-    for (b, mut text, mut tr, mut vis) in &mut badges {
-        if let Some((p, value, font)) = labels[b.0].take() {
-            if text.0 != value {
-                value.clone_into(&mut text.0);
+    for (b, mut sprite, mut tr, mut vis) in &mut badges {
+        if let Some((p, item, side)) = placements[b.0] {
+            let rect = Some(icons::item_rect(item));
+            let extent = Some(Vec2::splat(side));
+            if sprite.rect != rect || sprite.custom_size != extent {
+                sprite.rect = rect;
+                sprite.custom_size = extent;
             }
             tr.translation = p.extend(4.25);
-            tr.scale = Vec3::splat(font / 15.);
             vis.set_if_neq(Visibility::Inherited);
         } else {
             vis.set_if_neq(Visibility::Hidden);

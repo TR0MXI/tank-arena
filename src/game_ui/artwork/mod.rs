@@ -51,6 +51,7 @@ artwork! {
     STEP: "ui/step.png",
     RESTART: "ui/restart.png",
     DUEL: "ui/duel.png",
+    ITEM_BADGES: "ui/item-badges.png",
 
     FLOOR: "arena/floor.png",
     FRAME: "arena/frame.png",

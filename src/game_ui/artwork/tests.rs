@@ -49,7 +49,20 @@ fn artwork_catalog_loads_images_and_both_material_shaders() {
     let mut app = headless();
     let server = app.world().resource::<AssetServer>();
     let images = [
-        HOME, REPLAYS, MAPS, TANK, SETTINGS, PLAY, PAUSE, STEP, RESTART, DUEL, FLOOR, FRAME, LIVERY,
+        HOME,
+        REPLAYS,
+        MAPS,
+        TANK,
+        SETTINGS,
+        PLAY,
+        PAUSE,
+        STEP,
+        RESTART,
+        DUEL,
+        ITEM_BADGES,
+        FLOOR,
+        FRAME,
+        LIVERY,
     ]
     .map(|path| server.load::<Image>(path));
     let shaders = [BLUR, BURST].map(|path| server.load::<Shader>(path));
@@ -61,6 +74,34 @@ fn artwork_catalog_loads_images_and_both_material_shaders() {
                 .iter()
                 .all(|h| w.resource::<Assets<Shader>>().contains(h))
     });
+}
+
+#[test]
+fn every_item_has_a_separate_rounded_badge_in_the_loaded_sheet() {
+    use crate::game_ui::{Art, icons::item_rect};
+    use std::collections::HashSet;
+    use tank_arena::sim::Item;
+
+    let mut app = headless();
+    let handle = app.world().resource::<Art>().item_badges.clone();
+    wait_for(&mut app, |w| {
+        w.resource::<Assets<Image>>().contains(&handle)
+    });
+    let sheet = app
+        .world()
+        .resource::<Assets<Image>>()
+        .get(&handle)
+        .unwrap();
+    let mut cells = HashSet::new();
+    for item in Item::ALL {
+        let rect = item_rect(item);
+        assert!(rect.max.cmple(sheet.size().as_vec2()).all());
+        let corner = rect.min.as_uvec2();
+        assert!(cells.insert(corner));
+        assert_eq!(sheet.get_color_at(corner.x, corner.y).unwrap().alpha(), 0.);
+        let center = rect.center().as_uvec2();
+        assert_eq!(sheet.get_color_at(center.x, center.y).unwrap().alpha(), 1.);
+    }
 }
 
 #[cfg(feature = "dev-assets")]
