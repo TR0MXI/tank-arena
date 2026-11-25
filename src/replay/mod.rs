@@ -28,8 +28,8 @@ const STRIDE: u64 = 256;
 pub struct BotInfo {
     pub seat: Seat,
     pub name: String,
-    /// 历史字段名：脚本包或内置原生策略的源码指纹。回放不会加载其中任何一种。
-    pub script_blake3: Option<String>,
+    /// 脚本包或内置策略的源码指纹；播放时不加载策略。
+    pub pilot_blake3: Option<String>,
     pub spawn: Point,
 }
 
@@ -37,6 +37,7 @@ pub struct BotInfo {
 pub struct Header {
     /// 开局种子。地图记录完整布局；启用道具时由此重建确定性的掉落和散布。
     pub seed: Option<u64>,
+    pub item_pool: ItemPool,
     pub map: String,
     pub tick_hz: u32,
     pub time_limit_secs: Option<u64>,

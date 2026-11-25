@@ -700,7 +700,7 @@ fn predictable_patrol_is_an_opening_only_during_its_blind_phase() {
         v.tick = t;
         let r = book.observe(&v, &motion, t.checked_sub(1));
         let g = route::mission(&v, &motion, &r, None, false, false);
-        if t < 120 || t >= 230 {
+        if !(120..230).contains(&t) {
             assert_eq!(g.tempo, 0.);
         }
         if r[1].consecutive_laps >= 2 {

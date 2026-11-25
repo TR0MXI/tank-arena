@@ -219,7 +219,7 @@ impl Draft {
 
 pub(super) fn sync_models(d: &mut ResMut<Draft>) {
     let scan = local_files::bots_dir()
-        .and_then(|dir| tank_arena::catalog::discover(&dir))
+        .and_then(|dir| tank_arena::bot::catalog::discover(&dir))
         .map(Model::lineup);
     if d.bypass_change_detection().reconcile(scan) {
         d.set_changed();
@@ -250,7 +250,7 @@ mod tests {
     fn native_is_playable_without_files_and_a_namesake_stays_a_separate_pilot() {
         let dir = tempfile::tempdir().unwrap();
         let mut d = Draft::default();
-        let scan = || tank_arena::catalog::discover(dir.path()).map(Model::lineup);
+        let scan = || tank_arena::bot::catalog::discover(dir.path()).map(Model::lineup);
         let map = SWITCHYARD.parse().unwrap();
         d.reconcile(scan());
         let (_, seats) = d.config(&map).unwrap();
@@ -330,7 +330,7 @@ mod tests {
     #[test]
     fn live_catalog_preserves_path_identity_and_reloads_scripts_at_launch() {
         use std::fs;
-        use tank_arena::catalog::discover;
+        use tank_arena::bot::catalog::discover;
 
         let dir = tempfile::tempdir().unwrap();
         let dir = dir.path();
@@ -456,7 +456,7 @@ mod tests {
         assert_eq!(d.selected_team, TeamId(3));
         assert!(d.tank(SlotId(2)).is_none());
         assert_eq!(d.tank(SlotId(3)).unwrap().team, TeamId(3));
-        assert_eq!(d.models, [model.clone()]);
+        assert_eq!(d.models, std::slice::from_ref(model));
         d.add_team();
 
         assert_eq!(d.teams, [TeamId(1), TeamId(3), TeamId(2)]);

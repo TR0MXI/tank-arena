@@ -13,11 +13,12 @@ pub(crate) struct Leg {
 pub(crate) fn trace(view: &View, b: Ball, limit: usize, mut emit: impl FnMut(usize, Leg) -> bool) {
     let (mut p, mut vel, mut armed) = (b.pos, b.v, b.deadly);
     let r = b.kind.map_or(SIZES.shell_radius, ShotKind::radius);
-    let mut end = limit.min(b.life as usize);
+    let end = limit.min(b.life as usize);
+    let mut expires_at = end;
     let mut recent = [-100i32; 5];
     let mut bounce = 0;
     for t in 1..=end {
-        if t > end {
+        if t > expires_at {
             break;
         }
         if b.kind == Some(ShotKind::Missile) {
@@ -88,7 +89,7 @@ pub(crate) fn trace(view: &View, b: Ball, limit: usize, mut emit: impl FnMut(usi
             }
             armed = true;
             if b.kind == Some(ShotKind::Pellet) {
-                end = end.min(t + 41)
+                expires_at = expires_at.min(t + 41);
             }
             if t as i32 - recent[bounce % 5] <= 2 {
                 return;
@@ -131,7 +132,7 @@ pub(crate) fn outgoing(v: &View) -> Ball {
     if w == Some(Item::Double) {
         p = add(
             p,
-            Heading(m.h.0.wrapping_add(1 << 30)).direction(if v.sight.ammo % 2 == 0 {
+            Heading(m.h.0.wrapping_add(1 << 30)).direction(if v.sight.ammo.is_multiple_of(2) {
                 -9 * PX
             } else {
                 9 * PX

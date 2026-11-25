@@ -120,7 +120,6 @@ pub(super) fn overlay(
                                 FaultKind::Load => "loadFault",
                                 FaultKind::Runtime => "runtimeFault",
                                 FaultKind::Action => "actionFault",
-                                FaultKind::Budget => "budgetFault",
                                 FaultKind::Memory => "memoryFault",
                             })
                         );

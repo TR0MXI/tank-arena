@@ -104,15 +104,13 @@ pub enum Outcome {
     Timeout,
     AllForfeited,
     Stopped,
-    /// 旧版本录像中的无效局；实时比赛遇到调度卡顿会重新对时。
-    HostOverload,
     WorkerLost,
 }
 
 // 离线试验可以复制局面：只读地图共享，控制状态和炮弹独立。
 #[derive(Clone, Debug)]
 pub struct World {
-    // 席位脚本和道具分别从开局种子派生随机流；无道具时保留旧版物理。
+    // 席位脚本和道具分别从开局种子派生随机流。
     behavior_seed: Option<u64>,
     cue: Option<Event>,
     // 显示用的命中时刻按名单顺序索引，不计入裁判状态或其哈希。
@@ -176,7 +174,7 @@ impl World {
         })
     }
 
-    /// None 表示旧回放/确定性基线；Some(0) 也是有效的随机流。
+    /// None 表示无随机种子的确定性基线；Some(0) 也是有效的随机流。
     pub fn with_behavior_seed(mut self, seed: Option<u64>) -> Self {
         self.behavior_seed = seed;
         if self.tick == 0 && self.items.pool != ItemPool::NONE {

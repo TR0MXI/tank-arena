@@ -3,7 +3,7 @@ use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
 };
-use tank_arena::{bot::Script, catalog::tank_name, local_files::Entry};
+use tank_arena::{bot::Script, bot::catalog::tank_name, local_files::Entry};
 
 /// 只为当前页和已部署席位保留源码快照；比赛始终从文件重新加载。
 #[derive(Resource, Default)]

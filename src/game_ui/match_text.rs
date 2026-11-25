@@ -9,7 +9,6 @@ pub(super) fn outcome(o: Outcome) -> String {
         Outcome::Timeout => tr("timeout"),
         Outcome::MutualElimination => tr("mutual"),
         Outcome::Stopped => tr("stopped"),
-        Outcome::HostOverload => tr("overload"),
         Outcome::WorkerLost => tr("workerLost"),
         Outcome::AllForfeited => tr("allForfeited"),
     }

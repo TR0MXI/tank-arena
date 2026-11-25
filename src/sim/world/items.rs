@@ -54,7 +54,10 @@ pub struct ItemPool(u16);
 impl TryFrom<u16> for ItemPool {
     type Error = &'static str;
     fn try_from(v: u16) -> Result<Self, Self::Error> {
-        Self::from_bits(v).ok_or("unknown item in crate pool")
+        let pool = Self(v);
+        pool.is_valid()
+            .then_some(pool)
+            .ok_or("unknown item in crate pool")
     }
 }
 impl ItemPool {
@@ -66,11 +69,8 @@ impl ItemPool {
     pub fn toggle(&mut self, item: Item) {
         self.0 ^= 1 << item as u8;
     }
-    pub(crate) fn bits(self) -> u16 {
-        self.0
-    }
-    pub(crate) fn from_bits(bits: u16) -> Option<Self> {
-        (bits & !Self::ALL.0 == 0).then_some(Self(bits))
+    pub(crate) fn is_valid(self) -> bool {
+        self.0 & !Self::ALL.0 == 0
     }
 }
 
@@ -218,9 +218,6 @@ impl Items {
 impl World {
     pub fn items(&self) -> &Items {
         &self.items
-    }
-    pub(crate) fn restore_items(&mut self, items: Items) {
-        self.items = items;
     }
     pub fn with_items(mut self, pool: ItemPool) -> Self {
         assert_eq!(self.tick, 0, "configure crates before starting the match");

@@ -1,3 +1,4 @@
+//! V1：前缀仅携带涂装，比赛配置统一存于 Header；不按配置切换编码版本。
 //! 两层独立边界：每个 bitcode 批次最多 32 条，多个完整批次再合成一个 zstd 块。
 
 mod decoder;
@@ -6,13 +7,10 @@ mod encoder;
 mod tests;
 
 use super::{Record, invalid};
-use crate::sim::ItemPool;
 pub(super) use decoder::Decoder;
 pub(super) use encoder::Encoder;
 use std::io;
-const ITEM_MAGIC: &[u8; 8] = b"TANKREC\x06";
-
-const MAGIC: &[u8; 8] = b"TANKREC\x05";
+const MAGIC: &[u8; 8] = b"TANKREC\x01";
 const TARGET: usize = 32 * 1024;
 const MAX_BLOCK: usize = 256 * 1024;
 const LENGTH: usize = size_of::<u32>();

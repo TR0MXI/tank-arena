@@ -25,7 +25,9 @@ impl World {
         }
     }
 
-    pub(crate) fn restore(&mut self, c: Checkpoint) {
+    pub(crate) fn restore(&mut self, c: Checkpoint, items: Items) {
+        // 道具弹标记参与弹槽重建，与物理状态一起恢复。
+        self.items = items;
         self.tick = c.tick;
         self.tanks = c.tanks;
 

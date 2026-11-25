@@ -1,3 +1,4 @@
+use super::super::catalog;
 use std::{
     collections::BTreeMap,
     fs::{self, File},
@@ -110,13 +111,13 @@ impl Script {
 
     /// 仅供车库显示入口资料/涂装；不需要读入任何模块。
     pub fn read_entry(path: &Path) -> Result<Self, SourceError> {
-        if !crate::catalog::is_luau(path) || !path.symlink_metadata()?.is_file() {
+        if !catalog::is_luau(path) || !path.symlink_metadata()?.is_file() {
             return Err(SourceError::Extension);
         }
-        Self::from_source(&crate::catalog::tank_name(path), &read_text(path)?)
+        Self::from_source(&catalog::tank_name(path), &read_text(path)?)
     }
 
-    /// 回放身份不依赖安装目录或枚举顺序。没有模块时沿用历史上的源文件摘要。
+    /// 回放身份不依赖安装目录或枚举顺序。单文件按源文本取摘要，包摘要还包含模块相对路径。
     pub fn blake3(&self) -> blake3::Hash {
         self.digest
     }
@@ -159,7 +160,7 @@ fn collect_modules(root: &Path, dir: &Path, modules: &mut Modules) -> Result<(),
         }
         if kind.is_dir() {
             collect_modules(root, &path, modules)?;
-        } else if kind.is_file() && crate::catalog::is_luau(&path) {
+        } else if kind.is_file() && catalog::is_luau(&path) {
             let rel = path.strip_prefix(root).unwrap();
             if rel == Path::new("bot.luau") {
                 continue;

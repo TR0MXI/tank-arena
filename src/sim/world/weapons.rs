@@ -57,13 +57,13 @@ impl World {
         let boosted = g.boost_until > self.tick;
         let mut center = t.center.plus(t.heading.direction(offset * PX));
         if item == Item::Double {
-            center = center.plus(
-                Heading(t.heading.0.wrapping_add(1 << 30)).direction(if ammo % 2 == 0 {
+            center = center.plus(Heading(t.heading.0.wrapping_add(1 << 30)).direction(
+                if ammo.is_multiple_of(2) {
                     -9 * PX
                 } else {
                     9 * PX
-                }),
-            );
+                },
+            ));
         }
         // Never drop a stationary trap on the far side of a thin wall.
         if item == Item::Mine {

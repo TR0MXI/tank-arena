@@ -180,7 +180,7 @@ pub(super) fn inspect(
             let name = script
                 .as_ref()
                 .map(|s| s.name().to_owned())
-                .unwrap_or_else(|| tank_arena::catalog::tank_name(path));
+                .unwrap_or_else(|| tank_arena::bot::catalog::tank_name(path));
             let source = if looks.binding(path).is_some() {
                 "userLook"
             } else if active.is_some() {

@@ -17,34 +17,15 @@ struct BlockWriter<W> {
 }
 
 impl<W: Write> Encoder<W> {
-    #[cfg(test)]
-    pub(in crate::replay) fn new(output: W) -> io::Result<Self> {
-        Self::with_skins(output, &Default::default())
-    }
-
-    #[cfg(test)]
-    pub(in crate::replay) fn with_skins(
-        output: W,
-        skins: &crate::replay::SeatSkins,
-    ) -> io::Result<Self> {
-        Self::with_items(output, skins, ItemPool::NONE)
-    }
-
-    pub(in crate::replay) fn with_items(
+    pub(in crate::replay) fn new(
         mut output: W,
         skins: &crate::replay::SeatSkins,
-        pool: ItemPool,
     ) -> io::Result<Self> {
         let mask = skins
             .iter()
             .enumerate()
             .fold(0u8, |m, (i, s)| m | (u8::from(s.is_some()) << i));
-        if pool == ItemPool::NONE {
-            output.write_all(MAGIC)?;
-        } else {
-            output.write_all(ITEM_MAGIC)?;
-            output.write_all(&pool.bits().to_le_bytes())?;
-        }
+        output.write_all(MAGIC)?;
         output.write_all(&[mask])?;
         for skin in skins.iter().flatten() {
             if !skin.valid() {

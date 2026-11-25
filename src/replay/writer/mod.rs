@@ -1,10 +1,12 @@
-mod atomic_file;
 mod status;
 #[cfg(test)]
 mod tests;
 
 use super::*;
-use crate::runner::{Entrant, MatchLog};
+use crate::{
+    local_files::atomic::{self, Mode},
+    runner::{Entrant, MatchLog},
+};
 pub use status::{RecordStatus, Recording, SaveFailure};
 use std::{
     path::Path,
@@ -20,20 +22,16 @@ const QUEUE_CAPACITY: usize = 128;
 
 struct Spool {
     skins: SeatSkins,
-    rx: Receiver<(Record, ItemPool)>,
+    rx: Receiver<Record>,
     status: Recording,
     path: PathBuf,
 }
 
 impl Spool {
     fn run(self) {
-        let saved = atomic_file::publish(&self.path, |out| {
-            let mut records = self.rx.iter();
-            let (first, pool) = records
-                .next()
-                .ok_or_else(|| io::Error::from(io::ErrorKind::Interrupted))?;
-            let mut enc = codec::Encoder::with_items(out, &self.skins, pool)?;
-            for record in std::iter::once(first).chain(records.map(|(r, _)| r)) {
+        let saved = atomic::write(&self.path, Mode::CreateNew, |out| {
+            let mut enc = codec::Encoder::new(out, &self.skins)?;
+            for record in self.rx {
                 self.status.0.queued.fetch_sub(1, Ordering::Relaxed);
                 let finished = matches!(record, Record::End { .. });
                 enc.push(record)?;
@@ -55,8 +53,7 @@ impl Spool {
 }
 
 pub struct Recorder {
-    tx: Option<SyncSender<(Record, ItemPool)>>,
-    pool: ItemPool,
+    tx: Option<SyncSender<Record>>,
     worker: Option<JoinHandle<()>>,
     status: Recording,
     path: PathBuf,
@@ -82,8 +79,7 @@ impl Recorder {
             "match-{stamp}-{}-{serial}.{EXTENSION}",
             std::process::id()
         ));
-        let (mut recorder, mut spool) = Self::channel(path);
-        spool.skins = skins;
+        let (mut recorder, spool) = Self::channel(path, skins);
         match thread::Builder::new()
             .name(format!("arena-record-{serial}"))
             .spawn(move || spool.run())
@@ -98,11 +94,11 @@ impl Recorder {
         (recorder, status)
     }
 
-    fn channel(path: PathBuf) -> (Self, Spool) {
+    fn channel(path: PathBuf, skins: SeatSkins) -> (Self, Spool) {
         let (tx, rx) = mpsc::sync_channel(QUEUE_CAPACITY);
         let status = Recording::default();
         let spool = Spool {
-            skins: Default::default(),
+            skins,
             path: path.clone(),
             status: status.clone(),
             rx,
@@ -110,7 +106,6 @@ impl Recorder {
         (
             Self {
                 tx: Some(tx),
-                pool: ItemPool::NONE,
                 worker: None,
                 status,
                 path,
@@ -127,7 +122,7 @@ impl Recorder {
 
         let counts = &self.status.0;
         let n = counts.queued.fetch_add(1, Ordering::Relaxed) + 1;
-        match tx.try_send((r, self.pool)) {
+        match tx.try_send(r) {
             Ok(()) => {
                 counts
                     .peak
@@ -163,9 +158,9 @@ impl Drop for Recorder {
 
 impl MatchLog for Recorder {
     fn start(&mut self, w: &World, bots: &[Entrant], faults: &[(SlotId, Fault)]) {
-        self.pool = w.items().pool;
         let header = Header {
             seed: w.behavior_seed(),
+            item_pool: w.items().pool,
             map: w.map().source().into(),
             tick_hz: HZ,
             time_limit_secs: w.clock().seconds(),
@@ -176,7 +171,7 @@ impl MatchLog for Recorder {
                     seat: b.seat,
                     name: b.name.clone(),
                     spawn: t.center,
-                    script_blake3: b.fingerprint().map(|hash| hash.to_hex().to_string()),
+                    pilot_blake3: b.fingerprint().map(|hash| hash.to_hex().to_string()),
                 })
                 .collect(),
             init_faults: faults.into(),
@@ -255,8 +250,9 @@ impl MatchLog for Recorder {
             "tanks": w.tanks(),
             "metrics": self.metrics,
         });
-        let result =
-            atomic_file::publish(&path, |out| Ok(serde_json::to_writer(out, &result_json)?));
+        let result = atomic::write(&path, Mode::CreateNew, |out| {
+            Ok(serde_json::to_writer(out, &result_json)?)
+        });
         self.status
             .0
             .result

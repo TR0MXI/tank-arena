@@ -87,8 +87,7 @@ fn shotgun_uses_its_own_magazine_and_weapon_queue_is_fifo() {
     // Exercise seek restoration while the number of pellets exceeds the five ordinary slots.
     let c = w.checkpoint();
     let mut recovered = arena();
-    recovered.restore_items(w.items.clone());
-    recovered.restore(c);
+    recovered.restore(c, w.items.clone());
     assert_eq!(recovered.shells.ammo(ONE), AMMO);
     assert_eq!(recovered.shells(), w.shells());
     for _ in 0..2 {

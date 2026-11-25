@@ -1,7 +1,10 @@
 use super::*;
 use serde::{Deserialize, Serialize};
 use std::{fs, io, path::Path};
-use tank_arena::sim::{Item, ItemPool};
+use tank_arena::{
+    local_files::atomic::{self, Mode},
+    sim::{Item, ItemPool},
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub(super) enum Language {
@@ -66,14 +69,9 @@ fn read(p: &Path) -> Preferences {
 }
 
 fn save(p: &Path, settings: &Preferences) -> io::Result<()> {
-    let dir = p
-        .parent()
-        .ok_or_else(|| io::Error::other("missing parent"))?;
-    fs::create_dir_all(dir)?;
-    let mut tmp = tempfile::NamedTempFile::new_in(dir)?;
-    serde_json::to_writer(&mut tmp, settings)?;
-    tmp.persist(p)?;
-    Ok(())
+    atomic::write(p, Mode::Replace, |out| {
+        Ok(serde_json::to_writer(out, settings)?)
+    })
 }
 
 pub(super) fn tr(key: &str) -> String {

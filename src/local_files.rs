@@ -1,5 +1,9 @@
 //! 从 Finder 启动时，可写内容放在 .app 旁；从命令行启动时放在工作目录。
 
+pub mod atomic;
+mod bootstrap;
+pub use bootstrap::prepare;
+
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 use std::{
@@ -121,52 +125,6 @@ impl Entry {
     }
 }
 
-// 只初始化新建的目录；用户可以选择保留已有的空目录。
-fn prepare_bots(dir: &Path) -> io::Result<()> {
-    match fs::create_dir(dir) {
-        Ok(()) => (),
-        Err(e) if e.kind() == io::ErrorKind::AlreadyExists && dir.is_dir() => return Ok(()),
-        Err(e) => return Err(e),
-    }
-
-    // 发布包和开发目录都只提供 API 示例；不要把开发者自建的模型复制到新目录。
-    fs::write(
-        dir.join("example.luau"),
-        include_bytes!("../assets/bots/example.luau"),
-    )
-}
-
-fn prepare_maps(dir: &Path) -> io::Result<()> {
-    if dir.is_dir() {
-        return Ok(());
-    }
-
-    // 只在新目录不存在时接手旧地图库，不合并或覆盖两边的同名地图。
-    let legacy = dir.with_file_name("map");
-    if !dir.try_exists()? && legacy.is_dir() {
-        return fs::rename(legacy, dir);
-    }
-
-    fs::create_dir(dir)?;
-    for (name, source) in [
-        ("switchyard.map", crate::sim::SWITCHYARD),
-        (
-            "bank-shot.map",
-            include_str!("../assets/maps/bank-shot.map"),
-        ),
-    ] {
-        fs::write(dir.join(name), source)?;
-    }
-    Ok(())
-}
-
-/// 准备便携内容目录，不覆盖用户改过的初始文件，也不补回已删除的文件。
-pub fn prepare() -> io::Result<()> {
-    prepare_bots(&bots_dir()?)?;
-    fs::create_dir_all(Folder::Replays.path()?)?;
-    prepare_maps(&Folder::Maps.path()?)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -182,82 +140,6 @@ mod tests {
                 cwd.join(name)
             );
         }
-    }
-
-    #[test]
-    fn new_map_library_is_seeded_once_from_bundled_maps() {
-        let tmp = tempfile::tempdir().unwrap();
-        let dir = tmp.path().join("maps");
-        let templates = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/maps");
-        prepare_maps(&dir).unwrap();
-        let entries = Folder::Maps.scan(&dir).unwrap();
-        assert_eq!(entries.len(), Folder::Maps.scan(&templates).unwrap().len());
-        for entry in entries {
-            let original = templates.join(entry.path.file_name().unwrap());
-            assert_eq!(fs::read(original).unwrap(), fs::read(entry.path).unwrap());
-        }
-
-        let edited = dir.join("switchyard.map");
-        let removed = dir.join("bank-shot.map");
-        fs::write(&edited, "edited").unwrap();
-        fs::remove_file(&removed).unwrap();
-        prepare_maps(&dir).unwrap();
-        assert_eq!(fs::read_to_string(edited).unwrap(), "edited");
-        assert!(!removed.exists());
-        assert!(!tmp.path().join("map").exists());
-    }
-
-    #[test]
-    fn existing_library_migrates_only_if_new_directory_is_absent() {
-        let tmp = tempfile::tempdir().unwrap();
-        let dir = tmp.path().join("maps");
-        let legacy = tmp.path().join("map");
-        fs::create_dir(&legacy).unwrap();
-        fs::write(legacy.join("custom.map"), "custom").unwrap();
-        prepare_maps(&dir).unwrap();
-        assert!(!legacy.exists());
-        assert_eq!(Folder::Maps.scan(&dir).unwrap().len(), 1);
-        assert_eq!(
-            fs::read_to_string(dir.join("custom.map")).unwrap(),
-            "custom"
-        );
-
-        fs::create_dir(&legacy).unwrap();
-        fs::write(legacy.join("custom.map"), "other").unwrap();
-        prepare_maps(&dir).unwrap();
-        assert_eq!(
-            fs::read_to_string(dir.join("custom.map")).unwrap(),
-            "custom"
-        );
-        assert_eq!(
-            fs::read_to_string(legacy.join("custom.map")).unwrap(),
-            "other"
-        );
-    }
-
-    #[test]
-    fn existing_bots_are_never_overwritten_or_reinstalled() {
-        let tmp = tempfile::tempdir().unwrap();
-        let dir = tmp.path().join("bots");
-        prepare_bots(&dir).unwrap();
-
-        let entry = dir.join("example.luau");
-        assert_eq!(
-            crate::catalog::discover(&dir).unwrap(),
-            std::slice::from_ref(&entry)
-        );
-        assert_eq!(
-            fs::read(&entry).unwrap(),
-            include_bytes!("../assets/bots/example.luau").as_slice()
-        );
-        fs::write(&entry, "my script").unwrap();
-        prepare_bots(&dir).unwrap();
-
-        assert_eq!(fs::read_to_string(&entry).unwrap(), "my script");
-
-        fs::remove_file(&entry).unwrap();
-        prepare_bots(&dir).unwrap();
-        assert!(!entry.exists());
     }
 
     #[test]

@@ -14,6 +14,7 @@ fn step(tick: u64) -> Record {
 fn header(map: String) -> Record {
     Record::Header(Header {
         seed: None,
+        item_pool: crate::sim::ItemPool::NONE,
         map,
         tick_hz: 60,
         time_limit_secs: None,
@@ -73,7 +74,7 @@ fn reject_invalid_batch_framing_and_layout() {
 #[test]
 fn full_batches_tail_and_byte_budget_are_independent() {
     let tmp = tempfile::NamedTempFile::new().unwrap();
-    let mut enc = Encoder::new(tmp.as_file()).unwrap();
+    let mut enc = Encoder::new(tmp.as_file(), &Default::default()).unwrap();
     for tick in 0..35 {
         enc.push(step(tick)).unwrap();
     }

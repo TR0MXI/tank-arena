@@ -195,7 +195,7 @@ fn native_and_namesake_luau_submit_distinct_recorded_controls() {
     let mut replay = Playback::open(&path).unwrap();
     for (info, (name, hash)) in replay.header.roster.iter().zip(expected) {
         assert_eq!(info.name, name);
-        assert_eq!(info.script_blake3.as_deref(), Some(hash.as_str()));
+        assert_eq!(info.pilot_blake3.as_deref(), Some(hash.as_str()));
     }
     let mut seen = [false; 2];
     while !replay.ended() {

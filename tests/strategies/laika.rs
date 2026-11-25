@@ -5,7 +5,7 @@ use tank_arena::{
     sim::*,
 };
 
-const LAIKA: &str = include_str!("../assets/strategies/laika.luau");
+const LAIKA: &str = include_str!("../../assets/strategies/laika.luau");
 const BANK: &str = "\
 +-+-+-+-+-+
 |. . . . .|

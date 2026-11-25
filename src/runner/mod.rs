@@ -7,15 +7,16 @@ mod lifecycle_tests;
 mod mailbox;
 mod metrics;
 mod pacer;
+mod pilot;
+pub use pilot::{AVALON_NAME, Entrant, Pilot};
 
 use crate::{
-    bot::{BotConfig, Fault, FaultKind, Script},
+    bot::{BotConfig, Fault},
     sim::*,
 };
 use bot_worker::Exchange;
 pub use frame::*;
 use std::{
-    path::Path,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -24,77 +25,6 @@ use std::{
     thread::{self, JoinHandle},
     time::Instant,
 };
-
-pub const AVALON_NAME: &str = "Avalon";
-
-#[derive(Clone, Debug)]
-pub enum Pilot {
-    Avalon,
-    Luau(Script),
-}
-
-#[derive(Clone, Debug)]
-pub struct Entrant {
-    pub seat: Seat,
-    pub name: String,
-    pub pilot: Result<Pilot, Fault>,
-}
-
-impl Entrant {
-    pub fn avalon(seat: Seat) -> Self {
-        Self {
-            seat,
-            name: AVALON_NAME.into(),
-            pilot: Ok(Pilot::Avalon),
-        }
-    }
-
-    pub fn script(&self) -> Option<&Script> {
-        match self.pilot.as_ref().ok()? {
-            Pilot::Luau(s) => Some(s),
-            Pilot::Avalon => None,
-        }
-    }
-
-    pub fn fingerprint(&self) -> Option<blake3::Hash> {
-        Some(match self.pilot.as_ref().ok()? {
-            Pilot::Avalon => crate::avalon::fingerprint(),
-            Pilot::Luau(s) => s.blake3(),
-        })
-    }
-
-    /// Keep historical and user-supplied scripts selectable under their own identity.
-    pub fn luau_label(name: &str) -> &str {
-        if name == AVALON_NAME {
-            "Avalon (Luau)"
-        } else {
-            name
-        }
-    }
-
-    pub fn from_script(seat: Seat, script: Script) -> Self {
-        Self {
-            seat,
-            name: Self::luau_label(script.name()).into(),
-            pilot: Ok(Pilot::Luau(script)),
-        }
-    }
-
-    pub fn from_file(seat: Seat, path: &Path) -> Self {
-        let script = Script::read(path).map_err(|e| Fault {
-            kind: FaultKind::Load,
-            message: format!("{}: {e}", path.display()),
-        });
-        match script {
-            Ok(script) => Self::from_script(seat, script),
-            Err(fault) => Self {
-                seat,
-                name: Self::luau_label(&crate::catalog::tank_name(path)).into(),
-                pilot: Err(fault),
-            },
-        }
-    }
-}
 
 /// 回调位于裁判线程；实现必须有界且不等待文件 I/O。
 pub trait MatchLog: Send + 'static {

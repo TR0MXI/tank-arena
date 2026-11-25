@@ -192,10 +192,6 @@
     "zh-CN": "对局已终止",
     "en": "Match stopped"
   },
-  "overload": {
-    "zh-CN": "宿主过载，比赛无效",
-    "en": "Host overloaded · no contest"
-  },
   "workerLost": {
     "zh-CN": "比赛线程异常，比赛无效",
     "en": "Worker lost · no contest"
@@ -327,10 +323,6 @@
   "actionFault": {
     "zh-CN": "非法动作",
     "en": "Invalid action"
-  },
-  "budgetFault": {
-    "zh-CN": "超出预算",
-    "en": "Budget exhausted"
   },
   "memoryFault": {
     "zh-CN": "内存不足",

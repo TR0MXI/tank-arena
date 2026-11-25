@@ -2,11 +2,17 @@ use super::*;
 use std::{
     collections::BTreeMap,
     fs::{self, File},
-    io::{self, Read, Write},
+    io::{self, Read},
     path::Path,
     sync::Arc,
 };
-use tank_arena::{local_files::Entry, sim::MAP_LIMIT};
+use tank_arena::{
+    local_files::{
+        Entry,
+        atomic::{self, Mode},
+    },
+    sim::MAP_LIMIT,
+};
 
 pub(super) struct CachedMap {
     pub entry: Entry,
@@ -188,13 +194,11 @@ impl Field {
     }
 
     pub(super) fn save_to(&mut self, dir: &Path) -> io::Result<()> {
-        fs::create_dir_all(dir)?;
         let (w, h) = self.map.size();
         let path = dir.join(format!("arena-{w}x{h}-{:016x}.map", fastrand::u64(..)));
-        let mut tmp = tempfile::NamedTempFile::new_in(dir)?;
-        writeln!(tmp, "{}", self.map.source())?;
-        tmp.as_file().sync_all()?;
-        tmp.persist_noclobber(&path)?;
+        atomic::write(&path, Mode::CreateNew, |out| {
+            writeln!(out, "{}", self.map.source())
+        })?;
         self.generated = None;
         self.selected = Some(path);
         self.reconcile(Folder::Maps.scan(dir)?);

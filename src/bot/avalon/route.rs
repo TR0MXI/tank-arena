@@ -314,39 +314,36 @@ pub(crate) fn mission(
         .iter()
         .filter(|c| c.seat.team == m.seat.team && c.seat.slot != m.seat.slot)
         .min_by(|a, b| dist(m.pos, a.pos).total_cmp(&dist(m.pos, b.pos)))
+        && dist(ally.pos, m.pos) > 3.25
+        && dist(enemy.pos, m.pos) > 1.0
+        && !v.sight.enemy_ahead
+        && task == "flank"
+        && v.cars.iter().any(|e| {
+            e.seat.team != m.seat.team
+                && dist(e.pos, ally.pos) < 3.2
+                && s::wall(v.map, ally.pos, sub(e.pos, ally.pos), SIZES.shell_radius).is_none()
+        })
     {
-        if dist(ally.pos, m.pos) > 3.25
-            && dist(enemy.pos, m.pos) > 1.0
-            && !v.sight.enemy_ahead
-            && task == "flank"
-            && v.cars.iter().any(|e| {
-                e.seat.team != m.seat.team
-                    && dist(e.pos, ally.pos) < 3.2
-                    && s::wall(v.map, ally.pos, sub(e.pos, ally.pos), SIZES.shell_radius).is_none()
-            })
-        {
-            let point = (0..w * h)
-                .map(|i| center(i, w))
-                .filter(|&p| dist(p, ally.pos) + 0.55 < dist(m.pos, ally.pos))
-                .min_by(|&a, &b| {
-                    let rank = |p: Point| {
-                        0.58 * cost(p)
-                            + 0.83 * dist(p, ally.pos)
-                            + 0.35 * dist(p, enemy.pos)
-                            + if s::wall(v.map, p, sub(enemy.pos, p), SIZES.shell_radius).is_none()
-                            {
-                                0.
-                            } else {
-                                0.65
-                            }
-                    };
-                    rank(a).total_cmp(&rank(b))
-                });
-            if let Some(p) = point {
-                combat = false;
-                task = "support lane";
-                goal = p;
-            }
+        let point = (0..w * h)
+            .map(|i| center(i, w))
+            .filter(|&p| dist(p, ally.pos) + 0.55 < dist(m.pos, ally.pos))
+            .min_by(|&a, &b| {
+                let rank = |p: Point| {
+                    0.58 * cost(p)
+                        + 0.83 * dist(p, ally.pos)
+                        + 0.35 * dist(p, enemy.pos)
+                        + if s::wall(v.map, p, sub(enemy.pos, p), SIZES.shell_radius).is_none() {
+                            0.
+                        } else {
+                            0.65
+                        }
+                };
+                rank(a).total_cmp(&rank(b))
+            });
+        if let Some(p) = point {
+            combat = false;
+            task = "support lane";
+            goal = p;
         }
     }
     if supply.is_none() && combat && m.weapon == Some(Item::Mine) && target_range < 2.8 {

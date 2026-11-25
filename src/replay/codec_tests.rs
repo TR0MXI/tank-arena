@@ -22,7 +22,7 @@ fn unpack(path: &Path) -> Vec<Record> {
 
 fn pack(records: impl IntoIterator<Item = Record>) -> Vec<u8> {
     let mut bytes = vec![];
-    let mut writer = codec::Encoder::new(&mut bytes).unwrap();
+    let mut writer = codec::Encoder::new(&mut bytes, &Default::default()).unwrap();
     for r in records {
         writer.push(r).unwrap();
     }
@@ -51,14 +51,14 @@ fn reject_old_text_unknown_binary_truncation_oversize_and_trailing_data() {
     assert_eq!(problem(br#"{"type":"header"}"#).0, ReplayProblem::Format);
 
     let mut bytes = fs::read(demo()).unwrap();
-    assert_eq!(&bytes[..8], b"TANKREC\x05");
+    assert_eq!(&bytes[..8], b"TANKREC\x01");
     assert_eq!(
         problem(&bytes[..bytes.len() - 1]).0,
         ReplayProblem::Truncated
     );
 
     let original_version = bytes[7];
-    for version in [0, 1, 2, 3, 4, 7, 255] {
+    for version in [0, 2, 3, 4, 5, 6, 7, 8, 255] {
         bytes[7] = version;
         assert_eq!(problem(&bytes), (ReplayProblem::Version, 1));
     }
@@ -176,7 +176,7 @@ fn seek_across_compressed_blocks_and_an_exact_end_of_block() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("cross-block.tankrec");
     let records = unpack(&demo());
-    let mut enc = codec::Encoder::new(File::create(&path).unwrap()).unwrap();
+    let mut enc = codec::Encoder::new(File::create(&path).unwrap(), &Default::default()).unwrap();
     for (i, r) in records.into_iter().enumerate() {
         let keyframe = matches!(r, Record::Keyframe { .. });
         enc.push(r).unwrap();
@@ -225,7 +225,7 @@ fn cosmetic_prefix_survives_playback_and_seek_without_changing_records() {
     skin.set(47, 31, b'a'); // 右下角的细节无法用 2×2 块表示。
     let mut skins: SeatSkins = Default::default();
     skins[1] = Some(skin);
-    let mut enc = codec::Encoder::with_skins(tmp.as_file(), &skins).unwrap();
+    let mut enc = codec::Encoder::new(tmp.as_file(), &skins).unwrap();
     for record in unpack(&demo) {
         enc.push(record).unwrap();
     }
@@ -236,7 +236,7 @@ fn cosmetic_prefix_survives_playback_and_seek_without_changing_records() {
 
     assert_eq!(player.skins(), &skins);
     let mut bytes = fs::read(tmp.path()).unwrap();
-    assert_eq!(&bytes[..8], b"TANKREC\x05");
+    assert_eq!(&bytes[..8], b"TANKREC\x01");
     assert_eq!(bytes[9 + 48 * 32 - 1], b'a');
     bytes[9] = b'?';
     assert_eq!(problem(&bytes), (ReplayProblem::Format, 1));
@@ -254,7 +254,7 @@ fn author_livery_round_trips_without_the_source_script() {
     assert_eq!(skins[0].as_ref(), Some(&design));
 
     let tmp = tempfile::NamedTempFile::new().unwrap();
-    let mut enc = codec::Encoder::with_skins(tmp.as_file(), &skins).unwrap();
+    let mut enc = codec::Encoder::new(tmp.as_file(), &skins).unwrap();
     for record in unpack(&demo()) {
         enc.push(record).unwrap();
     }
@@ -265,7 +265,7 @@ fn author_livery_round_trips_without_the_source_script() {
 
     assert_eq!(player.skins(), &skins);
 
-    assert_eq!(&fs::read(tmp.path()).unwrap()[..9], b"TANKREC\x05\x01");
+    assert_eq!(&fs::read(tmp.path()).unwrap()[..9], b"TANKREC\x01\x01");
 }
 
 #[test]
@@ -285,4 +285,14 @@ fn replay_keeps_behavior_seed_across_seek_without_changing_physics() {
         p.seek(tick).unwrap();
         assert_eq!(p.world().behavior_seed(), Some(u64::MAX));
     }
+}
+
+#[test]
+fn unknown_crate_types_are_rejected_before_simulation() {
+    let mut records = unpack(&demo());
+    let Record::Header(h) = &mut records[0] else {
+        panic!("missing header")
+    };
+    h.item_pool = bitcode::decode(&bitcode::encode(&0x8000u16)).unwrap();
+    assert_eq!(problem(&pack(records)), (ReplayProblem::Configuration, 1));
 }

@@ -396,6 +396,7 @@ fn crate_pool_and_drop_sequence_survive_seek_and_reopen() {
     pool.toggle(Item::Speed);
     let path = record_with_items(dir.path(), 5, 800, pool);
     let mut p = Playback::open(&path).unwrap();
+    assert_eq!(p.header.item_pool, pool);
     assert_eq!(p.world().items().pool, pool);
     p.seek(800).unwrap();
     let last = p.world().items().clone();

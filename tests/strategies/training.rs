@@ -1,9 +1,11 @@
-use super::*;
-use crate::sim::*;
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, sync::Arc};
+use tank_arena::{
+    bot::{LuauBot, Script},
+    sim::*,
+};
 
-const STARTER: &str = include_str!("../../../tests/fixtures/training/starter.luau");
-const SENTRY: &str = include_str!("../../../tests/fixtures/training/sentry.luau");
+const STARTER: &str = include_str!("../fixtures/training/starter.luau");
+const SENTRY: &str = include_str!("../fixtures/training/sentry.luau");
 
 struct Trace {
     cells: Vec<BTreeSet<(i32, i32)>>,

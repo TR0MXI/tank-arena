@@ -1,11 +1,10 @@
 use super::{
-    Entrant, Frame, Pilot,
+    Entrant, Frame,
     mailbox::{Mailbox, Ticket},
 };
 use crate::{
-    avalon::{Avalon, Ball, Car, View},
-    bot::{BotConfig, Fault, LuauBot},
-    sim::{ArenaMap, ControlUpdate},
+    bot::{BotConfig, Fault},
+    sim::ControlUpdate,
 };
 use std::{
     sync::{
@@ -13,7 +12,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         mpsc::Sender,
     },
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 pub(super) struct Answer {
@@ -81,64 +80,6 @@ impl Exchange {
     }
 }
 
-enum Controller<'a> {
-    Luau(LuauBot),
-    Avalon {
-        map: &'a ArenaMap,
-        policy: Box<Avalon>,
-        cars: Vec<Car>,
-        balls: Vec<Ball>,
-    },
-}
-
-impl Controller<'_> {
-    fn control(
-        &mut self,
-        i: usize,
-        frame: &Frame,
-        measure: impl FnOnce(Instant, Duration),
-    ) -> Result<ControlUpdate, Fault> {
-        match self {
-            Self::Luau(bot) => bot
-                .control(
-                    frame.tick,
-                    frame.sight[i],
-                    &frame.tanks,
-                    &frame.shells,
-                    &frame.items,
-                    measure,
-                )
-                .map_err(|e| Fault::classify(e, false)),
-            Self::Avalon {
-                map,
-                policy,
-                cars,
-                balls,
-            } => {
-                let observe = |t| Car::observe(t, &frame.items, frame.tick);
-                cars.clear();
-                cars.extend(frame.tanks.iter().filter(|t| t.alive).map(observe));
-                balls.clear();
-                balls.extend(frame.shells.iter().map(|s| Ball::observe(s, &frame.items)));
-                let view = View {
-                    map,
-                    tick: frame.tick,
-                    me: observe(&frame.tanks[i]),
-                    sight: frame.sight[i],
-                    weapon_slots_used: frame.items.gear(frame.tanks[i].seat.slot).queue.len(),
-                    cars,
-                    balls,
-                    crates: &frame.items.crates,
-                };
-                let entered = Instant::now();
-                let (controls, _) = policy.decide(&view);
-                measure(entered, entered.elapsed());
-                Ok(controls)
-            }
-        }
-    }
-}
-
 pub(super) fn work(
     i: usize,
     entrant: &Entrant,
@@ -146,19 +87,7 @@ pub(super) fn work(
     ex: &Exchange,
     ready: Sender<(usize, Result<(), Fault>)>,
 ) {
-    let loaded = match &entrant.pilot {
-        Ok(Pilot::Avalon) => Ok(Controller::Avalon {
-            map: config.map,
-            policy: Box::default(),
-            cars: Vec::new(),
-            balls: Vec::new(),
-        }),
-        Ok(Pilot::Luau(script)) => LuauBot::load(script, config, ex.cancel.clone())
-            .map(Controller::Luau)
-            .map_err(|e| Fault::classify(e, true)),
-        Err(fault) => Err(fault.clone()),
-    };
-    let mut bot = match loaded {
+    let mut bot = match entrant.load(config, ex.cancel.clone()) {
         Ok(bot) => {
             if ready.send((i, Ok(()))).is_err() {
                 return;

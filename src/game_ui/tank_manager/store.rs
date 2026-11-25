@@ -1,6 +1,7 @@
 use super::*;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fs, io, path::Path};
+use tank_arena::local_files::atomic::{self, Mode};
 
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub(super) struct Library {
@@ -111,12 +112,9 @@ impl Looks {
         let mut lib = self.library.clone();
         let result = edit(&mut lib);
         let path = self.root.with_file_name("tank-skins.json");
-        let mut tmp = tempfile::NamedTempFile::new_in(
-            path.parent()
-                .ok_or_else(|| io::Error::other("no content directory"))?,
-        )?;
-        serde_json::to_writer_pretty(&mut tmp, &lib)?;
-        tmp.persist(&path)?;
+        atomic::write(&path, Mode::Replace, |out| {
+            Ok(serde_json::to_writer_pretty(out, &lib)?)
+        })?;
         self.library = lib;
         Ok(result)
     }

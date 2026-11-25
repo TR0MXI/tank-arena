@@ -1,3 +1,4 @@
+use crate::local_files::atomic::{self, Mode};
 use std::{
     fs, io,
     path::{Path, PathBuf},
@@ -7,12 +8,11 @@ use std::{
 /// 也不能让目录监视器看到未写完的文件。
 pub fn save_staged(source: &Path, dir: &Path) -> io::Result<PathBuf> {
     let name = source.file_name().ok_or(io::ErrorKind::InvalidInput)?;
-    fs::create_dir_all(dir)?;
     let dest = dir.join(name);
-    let mut tmp = tempfile::NamedTempFile::new_in(dir)?;
-    io::copy(&mut fs::File::open(source)?, tmp.as_file_mut())?;
-    tmp.as_file().sync_all()?;
-    tmp.persist_noclobber(&dest)?;
+    atomic::write(&dest, Mode::CreateNew, |out| {
+        io::copy(&mut fs::File::open(source)?, out)?;
+        Ok(())
+    })?;
     Ok(dest)
 }
 

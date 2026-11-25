@@ -58,6 +58,14 @@ impl Stream {
             ));
         }
 
+        if !header.item_pool.is_valid() {
+            return Err(ReplayIssue::at(
+                1,
+                Problem::Configuration,
+                "unknown crate types",
+            ));
+        }
+
         let clock = header
             .time_limit_secs
             .map_or(Ok(ClockRules::unlimited()), ClockRules::with_time_limit)
@@ -73,7 +81,7 @@ impl Stream {
         )
         .map_err(|e| ReplayIssue::at(1, Problem::Configuration, e))?
         .with_behavior_seed(header.seed)
-        .with_items(reader.pool);
+        .with_items(header.item_pool);
         if !header
             .roster
             .iter()
@@ -249,10 +257,7 @@ impl Stream {
                 outcome,
                 digest: expected,
             } => {
-                if matches!(
-                    outcome,
-                    Outcome::Stopped | Outcome::HostOverload | Outcome::WorkerLost
-                ) {
+                if matches!(outcome, Outcome::Stopped | Outcome::WorkerLost) {
                     self.world.invalidate(outcome);
                 }
                 if self.world.tick() != tick
@@ -290,9 +295,7 @@ impl Stream {
         let mut bytes = vec![0; u32::from_le_bytes(len) as usize];
         index.states.read_exact(&mut bytes)?;
         let (c, items, lanes, cue, hits) = bitcode::decode(&bytes).map_err(invalid)?;
-        // 先恢复道具弹标记，重建普通弹槽时不能把霰弹或破片算进去。
-        self.world.restore_items(items);
-        self.world.restore(c);
+        self.world.restore(c, items);
         self.world.restore_cues(cue, hits);
         self.lanes = lanes;
         self.ended = false;

@@ -14,7 +14,6 @@ fn units(n: i32) -> f64 {
 
 /// 所有行及容器都由宿主持有；清掉尾部索引但不丢掉行的分配。
 struct Rows {
-    lua: Lua,
     fields: usize,
     table: Table,
     pool: Vec<Table>,
@@ -30,7 +29,6 @@ impl Rows {
         table.set_readonly(true);
 
         Ok(Self {
-            lua: lua.clone(),
             fields,
             table,
             pool,
@@ -38,10 +36,15 @@ impl Rows {
         })
     }
 
-    fn update<T>(&mut self, items: &[T], write: impl Fn(&Table, &T) -> Result<()>) -> Result<()> {
+    fn update<T>(
+        &mut self,
+        lua: &Lua,
+        items: &[T],
+        write: impl Fn(&Table, &T) -> Result<()>,
+    ) -> Result<()> {
         while self.pool.len() < items.len() {
             self.pool
-                .push(self.lua.create_table_with_capacity(0, self.fields)?);
+                .push(lua.create_table_with_capacity(0, self.fields)?);
         }
         if items.len() != self.len {
             self.table.set_readonly(false);
@@ -134,6 +137,7 @@ impl Observation {
 
     pub(super) fn update(
         &mut self,
+        lua: &Lua,
         tick: u64,
         sight: Sight,
         tanks: &[Tank],
@@ -142,7 +146,7 @@ impl Observation {
     ) -> Result<&Table> {
         let table = &self.table;
         table.set_readonly(false);
-        self.tanks.update(tanks, |row, tank| {
+        self.tanks.update(lua, tanks, |row, tank| {
             if tank.seat.slot == self.slot {
                 table.raw_set("me", row)?;
             }
@@ -159,12 +163,12 @@ impl Observation {
             row.raw_set("heading", tank.heading.bearing_units())
         })?;
 
-        self.crates.update(&items.crates, |row, c| {
+        self.crates.update(lua, &items.crates, |row, c| {
             row.raw_set("kind", c.item.key())?;
             row.raw_set("x", units(c.center.x))?;
             row.raw_set("y", units(c.center.y))
         })?;
-        self.shells.update(shells, |row, shell| {
+        self.shells.update(lua, shells, |row, shell| {
             row.raw_set("id", shell.id)?;
             row.raw_set("owner", shell.owner.0)?;
             row.raw_set("x", units(shell.center.x))?;

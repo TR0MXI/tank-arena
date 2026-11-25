@@ -1,4 +1,5 @@
 use super::*;
+use crate::bot::Script;
 use std::time::Duration;
 
 fn seats() -> Vec<Entrant> {

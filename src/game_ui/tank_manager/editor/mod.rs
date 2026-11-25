@@ -138,7 +138,7 @@ pub(super) fn install(app: &mut App) {
 }
 
 fn enter(mut c: Commands, looks: Res<Looks>) {
-    let scan = tank_arena::catalog::discover(&looks.root);
+    let scan = tank_arena::bot::catalog::discover(&looks.root);
     let note = looks
         .error
         .as_ref()

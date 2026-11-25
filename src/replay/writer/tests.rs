@@ -42,7 +42,7 @@ fn assert_clean(dir: &Path) {
 fn full_queue_does_not_block_world_or_lose_independent_result() {
     let tmp = tempfile::tempdir().unwrap();
     let path = tmp.path().join("match.tankrec");
-    let (mut rec, spool) = Recorder::channel(path.clone());
+    let (mut rec, spool) = Recorder::channel(path.clone(), Default::default());
     let (mut world, bots) = arena();
     rec.start(&world, &bots, &[]);
 
@@ -148,20 +148,6 @@ fn both_outputs_report_a_broken_destination() {
 }
 
 #[test]
-fn partial_disk_write_leaves_no_visible_file() {
-    let tmp = tempfile::tempdir().unwrap();
-    let path = tmp.path().join("duel.tankrec");
-    let result = atomic_file::publish(&path, |file| {
-        file.write_all(b"first chunk")?;
-        file.flush()?;
-        Err(io::ErrorKind::StorageFull.into())
-    });
-    assert_eq!(result.unwrap_err().kind(), io::ErrorKind::StorageFull);
-    assert!(!path.exists());
-    assert_clean(tmp.path());
-}
-
-#[test]
 fn abandoning_a_recorder_joins_its_writer_and_removes_partial_output() {
     let tmp = tempfile::tempdir().unwrap();
     let (mut rec, status) = Recorder::new(tmp.path());
@@ -218,11 +204,11 @@ fn header_uses_the_frozen_package_digest_not_the_current_files_or_just_the_entry
     };
     let header = Playback::open(&path).unwrap().header;
     assert_eq!(
-        header.roster[0].script_blake3.as_deref(),
+        header.roster[0].pilot_blake3.as_deref(),
         Some(frozen.to_hex().as_str())
     );
     assert_eq!(
-        header.roster[1].script_blake3.as_deref(),
+        header.roster[1].pilot_blake3.as_deref(),
         Some(
             blake3::hash(bots[1].script().unwrap().text().as_bytes())
                 .to_hex()

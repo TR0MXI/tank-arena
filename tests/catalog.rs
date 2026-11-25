@@ -1,18 +1,10 @@
-use std::{
-    fs,
-    path::Path,
-    time::{SystemTime, UNIX_EPOCH},
-};
-use tank_arena::{bot::Script, catalog::discover};
+use std::{fs, path::Path};
+use tank_arena::{bot::Script, bot::catalog::discover};
 
 #[test]
 fn finds_only_top_level_files_and_direct_package_entries_without_running_them() {
-    let nonce = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let root = std::env::temp_dir().join(format!("tank-arena-bots-{}-{nonce}", std::process::id()));
-    fs::create_dir(&root).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
     fs::create_dir_all(root.join("猫 bot/helpers/nested")).unwrap();
     fs::create_dir(root.join("missing-entry")).unwrap();
     for file in [
@@ -27,16 +19,15 @@ fn finds_only_top_level_files_and_direct_package_entries_without_running_them() 
     }
 
     assert_eq!(
-        discover(&root).unwrap(),
+        discover(root).unwrap(),
         [root.join("猫 bot/bot.luau"), root.join("猫 bot.luau")]
     );
-    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
 fn file_headers_override_only_the_display_name_not_the_entry_path() {
     use tank_arena::{
-        catalog::tank_name,
+        bot::catalog::tank_name,
         runner::Entrant,
         sim::{Seat, SlotId, TeamId},
     };
