@@ -1,0 +1,105 @@
+name: Version build
+
+on:
+  push:
+    branches: ['**']
+    paths: ['Cargo.toml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    if: ${{ !github.event.deleted }}
+    outputs:
+      version: ${{ steps.detect.outputs.version }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - name: Check package version across the push
+        id: detect
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+          FIRST_PUSHED: ${{ github.event.commits[0].id }}
+        run: |
+          read_version() { python3 -c 'import sys, tomllib; print(tomllib.load(sys.stdin.buffer)["package"]["version"])'; }
+          [[ -f Cargo.toml ]] || exit 0
+          version=$(read_version < Cargo.toml)
+
+          # 手动构建没有 BEFORE；新分支则从本次推送的第一个提交的父版本开始比较。
+          base=$BEFORE
+          if [[ "$base" == 0000000000000000000000000000000000000000 ]]; then
+            [[ -n "$FIRST_PUSHED" ]] || exit 0
+            git fetch --no-tags --depth=2 origin "$FIRST_PUSHED"
+            base=$(git rev-parse --verify --quiet "$FIRST_PUSHED^" || true)
+          elif [[ -n "$base" ]]; then
+            git fetch --no-tags --depth=1 origin "$base"
+          fi
+          if [[ -n "$base" ]] && git cat-file -e "$base:Cargo.toml" 2>/dev/null; then
+            previous=$(git show "$base:Cargo.toml" | read_version)
+            if [[ "$version" == "$previous" ]]; then
+              echo "Package version unchanged ($version); skipping build."
+              exit 0
+            fi
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    if: needs.version.outputs.version != ''
+    name: Build ${{ matrix.platform }} (${{ needs.version.outputs.version }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            platform: Windows-x86_64
+            extension: zip
+          - runner: ubuntu-24.04
+            platform: Linux-x86_64
+            extension: tar.gz
+          - runner: macos-15
+            platform: macOS-arm64
+            extension: zip
+    env:
+      ARCHIVE: Tank-Arena-${{ needs.version.outputs.version }}-${{ matrix.platform }}.${{ matrix.extension }}
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends g++ pkg-config libx11-dev libxkbcommon-dev libxkbcommon-x11-0
+      - name: Build macOS app bundle
+        if: runner.os == 'macOS'
+        env:
+          DIST_DIR: ${{ github.workspace }}/dist
+        run: scripts/package-macos.sh
+      - name: Build portable executable and collect notices
+        if: runner.os != 'macOS'
+        run: |
+          cargo build --release --locked --bin tank-arena
+          mkdir -p dist/stage
+          python scripts/notices.py dist/stage/ThirdParty
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            cp target/release/tank-arena.exe dist/stage/
+            (cd dist/stage && python -m zipfile -c "../$ARCHIVE" tank-arena.exe ThirdParty)
+          else
+            cp target/release/tank-arena dist/stage/
+            tar -czf "dist/$ARCHIVE" -C dist/stage tank-arena ThirdParty
+          fi
+      - name: Upload versioned archive
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          path: dist/${{ env.ARCHIVE }}
+          archive: false
+          if-no-files-found: error

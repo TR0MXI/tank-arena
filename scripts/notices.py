@@ -41,13 +41,13 @@ def copy_licenses(package, destination):
 
 
 def collect(out):
-    command = ['cargo', 'metadata', '--locked', '--offline', '--format-version=1',
-               '--filter-platform=aarch64-apple-darwin']
+    host = subprocess.check_output(['rustc', '--print', 'host-tuple'], cwd=ROOT, text=True).strip()
+    command = ['cargo', 'metadata', '--locked', '--format-version=1', '--filter-platform', host]
     metadata = json.loads(subprocess.check_output(command, cwd=ROOT))
     needed = build_dependencies(metadata['resolve'])
     out.mkdir(parents=True, exist_ok=True)
     lines = ['# Tank Arena · Third-party notices', '',
-             'Native macOS build and build-time dependencies. See files by component for upstream terms.', '']
+             f'Native build and build-time dependencies for {host}. See files by component for upstream terms.', '']
 
     for package in sorted(metadata['packages'], key=lambda p: (p['name'], p['version'])):
         if package['id'] not in needed or package['source'] is None:

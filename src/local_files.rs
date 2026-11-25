@@ -122,7 +122,7 @@ impl Entry {
 }
 
 // 只初始化新建的目录；用户可以选择保留已有的空目录。
-fn prepare_bots(dir: &Path, defaults: &Path) -> io::Result<()> {
+fn prepare_bots(dir: &Path) -> io::Result<()> {
     match fs::create_dir(dir) {
         Ok(()) => (),
         Err(e) if e.kind() == io::ErrorKind::AlreadyExists && dir.is_dir() => return Ok(()),
@@ -130,9 +130,10 @@ fn prepare_bots(dir: &Path, defaults: &Path) -> io::Result<()> {
     }
 
     // 发布包和开发目录都只提供 API 示例；不要把开发者自建的模型复制到新目录。
-    let entry = "example.luau";
-    fs::copy(defaults.join(entry), dir.join(entry))?;
-    Ok(())
+    fs::write(
+        dir.join("example.luau"),
+        include_bytes!("../assets/bots/example.luau"),
+    )
 }
 
 fn prepare_maps(dir: &Path) -> io::Result<()> {
@@ -161,12 +162,7 @@ fn prepare_maps(dir: &Path) -> io::Result<()> {
 
 /// 准备便携内容目录，不覆盖用户改过的初始文件，也不补回已删除的文件。
 pub fn prepare() -> io::Result<()> {
-    let exe = std::env::current_exe()?;
-    let defaults = app_bundle(&exe).map_or_else(
-        || Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/bots"),
-        |app| app.join("Contents/Resources/bots"),
-    );
-    prepare_bots(&bots_dir()?, &defaults)?;
+    prepare_bots(&bots_dir()?)?;
     fs::create_dir_all(Folder::Replays.path()?)?;
     prepare_maps(&Folder::Maps.path()?)
 }
@@ -243,24 +239,24 @@ mod tests {
     fn existing_bots_are_never_overwritten_or_reinstalled() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().join("bots");
-        let defaults = tmp.path().join("Resources/bots");
-        fs::create_dir_all(&defaults).unwrap();
-        fs::write(defaults.join("example.luau"), "example").unwrap();
-        fs::write(defaults.join("private.luau"), "private").unwrap();
-        prepare_bots(&dir, &defaults).unwrap();
+        prepare_bots(&dir).unwrap();
 
         let entry = dir.join("example.luau");
         assert_eq!(
             crate::catalog::discover(&dir).unwrap(),
             std::slice::from_ref(&entry)
         );
+        assert_eq!(
+            fs::read(&entry).unwrap(),
+            include_bytes!("../assets/bots/example.luau").as_slice()
+        );
         fs::write(&entry, "my script").unwrap();
-        prepare_bots(&dir, &defaults).unwrap();
+        prepare_bots(&dir).unwrap();
 
         assert_eq!(fs::read_to_string(&entry).unwrap(), "my script");
 
         fs::remove_file(&entry).unwrap();
-        prepare_bots(&dir, &defaults).unwrap();
+        prepare_bots(&dir).unwrap();
         assert!(!entry.exists());
     }
 
