@@ -160,7 +160,22 @@ impl Maze {
             let hi = ((a.max(b) + r + 2 * HALF).div_euclid(CELL) + 1).clamp(lo, axis.len() as i32);
             axis[lo as usize..hi as usize].iter().flatten()
         }
-        lines(&self.horizontal, p.y, end.y, r).chain(lines(&self.vertical, p.x, end.x, r))
+        // A selected grid line may have many disjoint wall runs. Reject runs
+        // outside the swept box before doing rotated hull SAT / rounded casts.
+        // Inclusive edges and original iteration order preserve corner ties.
+        let lo = Point {
+            x: p.x.min(end.x) - r,
+            y: p.y.min(end.y) - r,
+        };
+        let hi = Point {
+            x: p.x.max(end.x) + r,
+            y: p.y.max(end.y) + r,
+        };
+        lines(&self.horizontal, p.y, end.y, r)
+            .chain(lines(&self.vertical, p.x, end.x, r))
+            .filter(move |w| {
+                w.max.x >= lo.x && w.min.x <= hi.x && w.max.y >= lo.y && w.min.y <= hi.y
+            })
     }
 }
 

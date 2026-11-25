@@ -10,11 +10,10 @@ fn arena() -> (World, Vec<Entrant>) {
                 slot: SlotId(i + 1),
                 team: TeamId(i),
             },
-            script: Ok(crate::bot::Script::from_source(
-                "idle",
-                "return function(_) return nil end",
-            )
-            .unwrap()),
+            pilot: Ok(crate::runner::Pilot::Luau(
+                crate::bot::Script::from_source("idle", "return function(_) return nil end")
+                    .unwrap(),
+            )),
         })
         .collect::<Vec<_>>();
     let clock = ClockRules::with_time_limit(10).unwrap();
@@ -208,7 +207,7 @@ fn header_uses_the_frozen_package_digest_not_the_current_files_or_just_the_entry
     fs::write(&entry, "return require('./decision')").unwrap();
     fs::write(&module, "return function() end").unwrap();
     bots[0] = Entrant::from_file(bots[0].seat, &entry);
-    let frozen = bots[0].script.as_ref().unwrap().blake3();
+    let frozen = bots[0].script().unwrap().blake3();
     fs::write(module, "return function() return {fire=true} end").unwrap();
     let (mut recorder, status) = Recorder::new(tmp.path());
     recorder.start(&world, &bots, &[]);
@@ -225,7 +224,7 @@ fn header_uses_the_frozen_package_digest_not_the_current_files_or_just_the_entry
     assert_eq!(
         header.roster[1].script_blake3.as_deref(),
         Some(
-            blake3::hash(bots[1].script.as_ref().unwrap().text().as_bytes())
+            blake3::hash(bots[1].script().unwrap().text().as_bytes())
                 .to_hex()
                 .as_str()
         )

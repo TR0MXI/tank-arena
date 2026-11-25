@@ -2,7 +2,6 @@ use super::*;
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
-    path::Path,
 };
 use tank_arena::{bot::Script, catalog::tank_name, local_files::Entry};
 
@@ -11,16 +10,27 @@ use tank_arena::{bot::Script, catalog::tank_name, local_files::Entry};
 pub(super) struct Profiles(BTreeMap<PathBuf, (Option<Entry>, Option<Script>)>);
 
 impl Profiles {
-    pub(super) fn script(&self, path: &Path) -> Option<&Script> {
+    pub(super) fn script(&self, model: &Model) -> Option<&Script> {
+        let Model::File(path) = model else {
+            return None;
+        };
         self.0.get(path)?.1.as_ref()
     }
 
-    pub(super) fn name(&self, path: &Path) -> Cow<'_, str> {
-        self.script(path)
-            .map_or_else(|| tank_name(path).into(), |s| s.name().into())
+    pub(super) fn name(&self, model: &Model) -> Cow<'_, str> {
+        match model {
+            Model::Avalon => tank_arena::runner::AVALON_NAME.into(),
+            Model::File(path) => self.script(model).map_or_else(
+                || Entrant::luau_label(&tank_name(path)).to_owned().into(),
+                |s| Entrant::luau_label(s.name()).into(),
+            ),
+        }
     }
 
-    pub(super) fn version(&self, path: &Path) -> Option<&Entry> {
+    pub(super) fn version(&self, model: &Model) -> Option<&Entry> {
+        let Model::File(path) = model else {
+            return None;
+        };
         self.0.get(path)?.0.as_ref()
     }
 }
@@ -44,6 +54,10 @@ pub(super) fn refresh(
         .visible_models()
         .iter()
         .chain(d.slots().map(|(_, t)| &t.model))
+        .filter_map(|m| match m {
+            Model::File(path) => Some(path),
+            Model::Avalon => None,
+        })
         .collect();
     let cache = &mut profiles.bypass_change_detection().0;
     let old_count = cache.len();

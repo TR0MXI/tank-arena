@@ -25,19 +25,58 @@ use std::{
     time::Instant,
 };
 
+pub const AVALON_NAME: &str = "Avalon";
+
+#[derive(Clone, Debug)]
+pub enum Pilot {
+    Avalon,
+    Luau(Script),
+}
+
 #[derive(Clone, Debug)]
 pub struct Entrant {
     pub seat: Seat,
     pub name: String,
-    pub script: Result<Script, Fault>,
+    pub pilot: Result<Pilot, Fault>,
 }
 
 impl Entrant {
+    pub fn avalon(seat: Seat) -> Self {
+        Self {
+            seat,
+            name: AVALON_NAME.into(),
+            pilot: Ok(Pilot::Avalon),
+        }
+    }
+
+    pub fn script(&self) -> Option<&Script> {
+        match self.pilot.as_ref().ok()? {
+            Pilot::Luau(s) => Some(s),
+            Pilot::Avalon => None,
+        }
+    }
+
+    pub fn fingerprint(&self) -> Option<blake3::Hash> {
+        Some(match self.pilot.as_ref().ok()? {
+            Pilot::Avalon => crate::avalon::fingerprint(),
+            Pilot::Luau(s) => s.blake3(),
+        })
+    }
+
+    /// Keep historical and user-supplied scripts selectable under their own identity.
+    pub fn luau_label(name: &str) -> &str {
+        if name == AVALON_NAME {
+            "Avalon (Luau)"
+        } else {
+            name
+        }
+    }
+
     pub fn from_script(seat: Seat, script: Script) -> Self {
         Self {
             seat,
-            name: script.name().to_owned(),
-            script: Ok(script),
+            name: Self::luau_label(script.name()).into(),
+            pilot: Ok(Pilot::Luau(script)),
         }
     }
 
@@ -46,11 +85,14 @@ impl Entrant {
             kind: FaultKind::Load,
             message: format!("{}: {e}", path.display()),
         });
-        let name = script.as_ref().map_or_else(
-            |_| crate::catalog::tank_name(path),
-            |script| script.name().to_owned(),
-        );
-        Self { seat, name, script }
+        match script {
+            Ok(script) => Self::from_script(seat, script),
+            Err(fault) => Self {
+                seat,
+                name: Self::luau_label(&crate::catalog::tank_name(path)).into(),
+                pilot: Err(fault),
+            },
+        }
     }
 }
 

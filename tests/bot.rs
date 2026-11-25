@@ -240,6 +240,7 @@ fn me_is_the_readonly_roster_row_not_a_slot_index() {
         r#"return function(obs)
         assert(obs.tanks[obs.slot_id] == nil)
         assert(obs.me == obs.tanks[2] and table.isfrozen(obs.me))
+        assert(obs.weapon_slots_used == 0 and obs.tanks[1].weapon_slots_used == nil)
         assert(obs.me.slot_id == obs.slot_id and obs.me.team_id == obs.team_id)
     end"#,
     )

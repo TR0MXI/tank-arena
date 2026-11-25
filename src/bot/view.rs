@@ -180,6 +180,7 @@ impl Observation {
             row.raw_set("life", shell.life)
         })?;
 
+        table.raw_set("weapon_slots_used", items.gear(self.slot).queue.len())?;
         table.raw_set("ammo", sight.ammo)?;
         table.raw_set("tick", tick)?;
         table.raw_set("enemy_ahead", sight.enemy_ahead)?;

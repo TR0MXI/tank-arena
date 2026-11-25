@@ -6,6 +6,8 @@ const ROSTER_CAPACITY: usize = 8;
 mod balance;
 mod geometry;
 mod map;
+mod prediction;
+pub(crate) use prediction::*;
 mod rules;
 mod world;
 

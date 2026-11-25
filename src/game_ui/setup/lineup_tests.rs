@@ -1,21 +1,8 @@
 use super::*;
 use std::collections::HashSet;
 
-#[test]
-fn repeated_roster_edits_reuse_visible_skin_handles() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("test.luau");
-    std::fs::write(
-        &path,
-        format!(
-            "-- @name 翠鸟\n-- @author Ada\n--[=[tank-skin\n{}\n]=]\nreturn function() end",
-            tank_arena::appearance::TEMPLATE
-        ),
-    )
-    .unwrap();
+fn lineup_app(draft: Draft) -> App {
     let mut app = artwork::tests::headless();
-    let mut draft = Draft::default();
-    draft.models.push(path.clone());
     app.init_resource::<tank_manager::Looks>()
         .init_resource::<Field>()
         .init_resource::<Profiles>()
@@ -39,13 +26,32 @@ fn repeated_roster_edits_reuse_visible_skin_handles() {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         Duration::from_millis(16),
     ));
+    app
+}
+
+#[test]
+fn repeated_roster_edits_reuse_visible_skin_handles() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.luau");
+    std::fs::write(
+        &path,
+        format!(
+            "-- @name 翠鸟\n-- @author Ada\n--[=[tank-skin\n{}\n]=]\nreturn function() end",
+            tank_arena::appearance::TEMPLATE
+        ),
+    )
+    .unwrap();
+    let mut draft = Draft::default();
+    let model = Model::File(path.clone());
+    draft.models.push(model.clone());
+    let mut app = lineup_app(draft);
     let mut handles = HashSet::new();
     let mut entities = HashSet::new();
     let start = std::time::Instant::now();
     for i in 0..100 {
         let mut draft = app.world_mut().resource_mut::<Draft>();
         if i % 2 == 0 {
-            draft.deploy(&path, TeamId(1));
+            draft.deploy(&model, TeamId(1));
         } else {
             draft.remove(SlotId(1));
         }
@@ -76,7 +82,7 @@ fn repeated_roster_edits_reuse_visible_skin_handles() {
     // 候选卡和已部署成员使用同一显示名，同名替换也同时刷新两处。
     app.world_mut()
         .resource_mut::<Draft>()
-        .deploy(&path, TeamId(1));
+        .deploy(&model, TeamId(1));
     app.update();
     let visible_names = |w: &mut bevy::prelude::World, name: &str| {
         w.query::<&Text>()
@@ -100,4 +106,23 @@ fn repeated_roster_edits_reuse_visible_skin_handles() {
         .collect::<HashSet<_>>();
     assert_eq!(current.len(), 2);
     assert!(current.is_disjoint(&handles));
+}
+
+#[test]
+fn builtin_card_renders_and_deploys_without_script_metadata() {
+    let mut draft = Draft::default();
+    draft.models = Model::lineup(Vec::new());
+    let mut app = lineup_app(draft);
+    app.update();
+    let w = app.world_mut();
+    assert!(w.query::<&Text>().iter(w).any(|t| t.0 == "Rust"));
+    let card = w
+        .query::<(Entity, &AccessibleLabel)>()
+        .iter(w)
+        .find(|(_, label)| label.0 == "Avalon")
+        .unwrap()
+        .0;
+    w.trigger(Activate { entity: card });
+    let d = w.resource::<Draft>();
+    assert_eq!(d.tank(SlotId(1)).unwrap().model, Model::Avalon);
 }

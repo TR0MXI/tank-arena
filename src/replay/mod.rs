@@ -28,6 +28,7 @@ const STRIDE: u64 = 256;
 pub struct BotInfo {
     pub seat: Seat,
     pub name: String,
+    /// 历史字段名：脚本包或内置原生策略的源码指纹。回放不会加载其中任何一种。
     pub script_blake3: Option<String>,
     pub spawn: Point,
 }

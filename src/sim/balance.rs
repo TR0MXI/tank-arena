@@ -36,3 +36,10 @@ pub const SIZES: Dimensions = Dimensions {
     muzzle: 50 * PX,
     shell_speed: 360 * PX / HZ as i32,
 };
+
+// 长、宽分量之和是旋转后任一轴上投影的上界，车身和前伸炮塔都必须包含在内。
+pub const TANK_REACH: i32 = {
+    let hull = SIZES.half_length + SIZES.half_width;
+    let turret = SIZES.turret_offset + SIZES.turret_half_length + SIZES.turret_half_width;
+    if hull > turret { hull } else { turret }
+};

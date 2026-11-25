@@ -14,7 +14,7 @@ fn seats() -> Vec<Entrant> {
                 team: TeamId(i % 2),
             },
             name: "stateful".into(),
-            script: Ok(src.clone()),
+            pilot: Ok(Pilot::Luau(src.clone())),
         })
         .collect()
 }

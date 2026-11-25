@@ -6,7 +6,8 @@ impl Tank {
         (self.center, self.heading)
     }
 
-    fn proposed_pose(&self, map: &ArenaMap, boost: bool) -> (Point, Heading) {
+    /// Pure one-step pose for hypothetical controls; excludes inter-tank traffic.
+    pub fn proposed_pose(&self, map: &ArenaMap, boost: bool) -> (Point, Heading) {
         let mult = if boost { 100 + BOOST_PERCENT } else { 100 };
         let turn_step = (u64::from(Heading::STEP) * mult as u64 / 100) as u32;
         let mut heading = match self.turn {

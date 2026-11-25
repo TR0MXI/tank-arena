@@ -201,16 +201,13 @@ impl Rect {
     }
 }
 
-// 长、宽分量之和是旋转后任一轴上投影的上界，车身和前伸炮塔都必须包含在内。
-const TANK_REACH: i32 = {
-    let hull = SIZES.half_length + SIZES.half_width;
-    let turret = SIZES.turret_offset + SIZES.turret_half_length + SIZES.turret_half_width;
-    if hull > turret { hull } else { turret }
-};
-
 pub(super) fn tank_clear(map: &ArenaMap, p: Point, h: Heading) -> bool {
+    let mut walls = map.layout.candidates(p, p, TANK_REACH);
+    let Some(first) = walls.next() else {
+        return true;
+    };
     let fixtures = Rect::tank(p, h);
-    !map.layout.candidates(p, p, TANK_REACH).any(|w| {
+    !std::iter::once(first).chain(walls).any(|w| {
         let wall = Rect::wall(*w);
         fixtures.iter().any(|f| f.overlaps(wall))
     })
@@ -287,4 +284,64 @@ pub(super) fn shield(p: Point, d: Point, center: Point, radius: i32) -> Option<C
         t: Fraction(t),
         normal: (q + t * d).try_normalize()?,
     })
+}
+
+#[cfg(test)]
+mod broadphase_tests {
+    use super::*;
+
+    #[test]
+    fn wall_runs_keep_every_exact_hit_and_boundary_tie_in_order() {
+        let map = ArenaMap::generate(93021, [12, 8]).unwrap();
+        let walls: Vec<_> = map.wall_rectangles().collect();
+        for &w in &walls {
+            for p in [
+                w.min,
+                w.max,
+                w.max.plus(Point {
+                    x: SIZES.shell_radius,
+                    y: 0,
+                }),
+            ] {
+                for d in [
+                    Point::default(),
+                    Point { x: -CELL, y: 0 },
+                    Point {
+                        x: CELL / 2,
+                        y: -CELL,
+                    },
+                ] {
+                    for r in [SIZES.shell_radius, 0] {
+                        let narrow = |w: WallRect| {
+                            Rect::wall(w)
+                                .cast(p, d, r, false)
+                                .map(|hit| (w, hit.t.0.to_bits()))
+                        };
+                        let all = walls.iter().copied().filter_map(narrow).collect::<Vec<_>>();
+                        let filtered = map
+                            .layout
+                            .candidates(p, p.plus(d), r)
+                            .copied()
+                            .filter_map(narrow)
+                            .collect::<Vec<_>>();
+                        assert_eq!(all, filtered);
+                    }
+                }
+            }
+        }
+        for x in (0..=2400).step_by(37) {
+            for y in (0..=1600).step_by(83) {
+                let p = Point {
+                    x: x * PX,
+                    y: y * PX,
+                };
+                let h = Heading::bearing((x ^ y) as u8);
+                let fixtures = Rect::tank(p, h);
+                let all_clear = walls
+                    .iter()
+                    .all(|w| fixtures.iter().all(|f| !f.overlaps(Rect::wall(*w))));
+                assert_eq!(tank_clear(&map, p, h), all_clear);
+            }
+        }
+    }
 }

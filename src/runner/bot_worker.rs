@@ -1,10 +1,11 @@
 use super::{
-    Entrant, Frame,
+    Entrant, Frame, Pilot,
     mailbox::{Mailbox, Ticket},
 };
 use crate::{
+    avalon::{Avalon, Ball, Car, View},
     bot::{BotConfig, Fault, LuauBot},
-    sim::ControlUpdate,
+    sim::{ArenaMap, ControlUpdate},
 };
 use std::{
     sync::{
@@ -12,7 +13,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         mpsc::Sender,
     },
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 pub(super) struct Answer {
@@ -80,6 +81,64 @@ impl Exchange {
     }
 }
 
+enum Controller<'a> {
+    Luau(LuauBot),
+    Avalon {
+        map: &'a ArenaMap,
+        policy: Box<Avalon>,
+        cars: Vec<Car>,
+        balls: Vec<Ball>,
+    },
+}
+
+impl Controller<'_> {
+    fn control(
+        &mut self,
+        i: usize,
+        frame: &Frame,
+        measure: impl FnOnce(Instant, Duration),
+    ) -> Result<ControlUpdate, Fault> {
+        match self {
+            Self::Luau(bot) => bot
+                .control(
+                    frame.tick,
+                    frame.sight[i],
+                    &frame.tanks,
+                    &frame.shells,
+                    &frame.items,
+                    measure,
+                )
+                .map_err(|e| Fault::classify(e, false)),
+            Self::Avalon {
+                map,
+                policy,
+                cars,
+                balls,
+            } => {
+                let observe = |t| Car::observe(t, &frame.items, frame.tick);
+                cars.clear();
+                cars.extend(frame.tanks.iter().filter(|t| t.alive).map(observe));
+                balls.clear();
+                balls.extend(frame.shells.iter().map(|s| Ball::observe(s, &frame.items)));
+                let view = View {
+                    map,
+                    tick: frame.tick,
+                    me: observe(&frame.tanks[i]),
+                    sight: frame.sight[i],
+                    weapon_slots_used: frame.items.gear(frame.tanks[i].seat.slot).queue.len(),
+                    cars,
+                    balls,
+                    crates: &frame.items.crates,
+                };
+                let entered = Instant::now();
+                let (controls, _) = policy.decide(&view);
+                measure(entered, entered.elapsed());
+                Ok(controls)
+            }
+        }
+    }
+}
+
 pub(super) fn work(
     i: usize,
     entrant: &Entrant,
@@ -87,13 +146,18 @@ pub(super) fn work(
     ex: &Exchange,
     ready: Sender<(usize, Result<(), Fault>)>,
 ) {
-    let loaded = entrant
-        .script
-        .as_ref()
-        .map_err(Clone::clone)
-        .and_then(|script| {
-            LuauBot::load(script, config, ex.cancel.clone()).map_err(|e| Fault::classify(e, true))
-        });
+    let loaded = match &entrant.pilot {
+        Ok(Pilot::Avalon) => Ok(Controller::Avalon {
+            map: config.map,
+            policy: Box::default(),
+            cars: Vec::new(),
+            balls: Vec::new(),
+        }),
+        Ok(Pilot::Luau(script)) => LuauBot::load(script, config, ex.cancel.clone())
+            .map(Controller::Luau)
+            .map_err(|e| Fault::classify(e, true)),
+        Err(fault) => Err(fault.clone()),
+    };
     let mut bot = match loaded {
         Ok(bot) => {
             if ready.send((i, Ok(()))).is_err() {
@@ -110,19 +174,10 @@ pub(super) fn work(
     while let Some((ticket, frame, published)) = ex.request(i) {
         let mut cost_us = None;
         let mut wake_us = 0;
-        let value = bot
-            .control(
-                frame.tick,
-                frame.sight[i],
-                &frame.tanks,
-                &frame.shells,
-                &frame.items,
-                |entered, elapsed| {
-                    wake_us = entered.duration_since(published).as_micros() as u64;
-                    cost_us = Some(elapsed.as_micros() as u64);
-                },
-            )
-            .map_err(|e| Fault::classify(e, false));
+        let value = bot.control(i, &frame, |entered, elapsed| {
+            wake_us = entered.duration_since(published).as_micros() as u64;
+            cost_us = Some(elapsed.as_micros() as u64);
+        });
         let failed = value.is_err();
         let mut s = ex.state.lock().unwrap();
         s.mailbox.submit(

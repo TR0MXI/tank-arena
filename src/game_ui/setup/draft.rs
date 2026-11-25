@@ -1,13 +1,10 @@
 use super::*;
-use std::{
-    io,
-    path::{Path, PathBuf},
-};
+use std::io;
 
 pub(super) const MODELS_PER_PAGE: usize = 5;
 
 pub(super) struct TankEntry {
-    pub(super) model: PathBuf,
+    pub(super) model: Model,
     pub(super) team: TeamId,
 }
 
@@ -23,10 +20,10 @@ pub(super) enum LimitMode {
 pub(super) struct Draft {
     // 数组下标就是坦克编号减一；不重排编号，也不另设席位计数器。
     tanks: [Option<TankEntry>; MAX_SLOTS],
-    // 用路径标识模型，而不是用它在可变目录中的位置。
+    // 内置车型用类型、脚本用路径标识，不依赖候选列表中的位置。
     scanned: bool,
     scan_error: Option<String>,
-    pub(super) models: Vec<PathBuf>,
+    pub(super) models: Vec<Model>,
     pub(super) model_page: usize,
     pub(super) selected_team: TeamId,
     pub(super) teams: Vec<TeamId>,
@@ -59,30 +56,34 @@ impl Default for Draft {
 }
 
 impl Draft {
-    /// 目录扫描只管理路径；预览资料和每场出战的脚本快照分别加载。
+    /// 扫描只更新车型身份；文件预览和正式出战的脚本快照分别加载。
     /// 轮询无变化时返回 false，避免重建面板或中断正在进行的拖动。
-    fn reconcile(&mut self, scan: io::Result<Vec<PathBuf>>) -> bool {
-        let paths = match scan {
-            Ok(paths) => paths,
+    fn reconcile(&mut self, scan: io::Result<Vec<Model>>) -> bool {
+        let (models, scan_error) = match scan {
+            Ok(models) => (models, None),
             Err(e) => {
-                let error = e.to_string();
-                if self.scan_error.as_ref() == Some(&error) {
-                    return false;
+                let error = Some(e.to_string());
+                if self.scanned {
+                    if self.scan_error == error {
+                        return false;
+                    }
+                    self.scan_error = error;
+                    return true; // 保留已有阵容，不把暂时读不到的文件当作已删除。
                 }
-                self.scan_error = Some(error);
-                return true; // 读取暂时失败时保留上一次有效的目录和阵容。
+                (vec![Model::Avalon], error) // 首次读取失败也能玩内置车型。
             }
         };
-        let recovered = self.scan_error.take().is_some();
-        if self.scanned && self.models == paths {
-            return recovered;
+        let error_changed = self.scan_error != scan_error;
+        self.scan_error = scan_error;
+        if self.scanned && self.models == models {
+            return error_changed;
         }
 
         if !self.scanned {
-            // 只有一款车型时，两队各用一辆；空目录仍留给玩家自行添加。
-            for (i, path) in paths.iter().cycle().take(2).enumerate() {
+            // 没有本地脚本时，默认两队各用一辆原生 Avalon。
+            for (i, model) in models.iter().cycle().take(2).enumerate() {
                 self.tanks[i] = Some(TankEntry {
-                    model: path.clone(),
+                    model: model.clone(),
                     team: TeamId(i as u32 + 1),
                 });
             }
@@ -92,7 +93,7 @@ impl Draft {
             for slot in &mut self.tanks {
                 if slot
                     .as_ref()
-                    .is_some_and(|t| paths.binary_search(&t.model).is_err())
+                    .is_some_and(|t| models.binary_search(&t.model).is_err())
                 {
                     *slot = None;
                 }
@@ -100,12 +101,12 @@ impl Draft {
         }
         self.model_page = self
             .model_page
-            .min(paths.len().saturating_sub(1) / MODELS_PER_PAGE);
-        self.models = paths;
+            .min(models.len().saturating_sub(1) / MODELS_PER_PAGE);
+        self.models = models;
         true
     }
 
-    pub(super) fn visible_models(&self) -> &[PathBuf] {
+    pub(super) fn visible_models(&self) -> &[Model] {
         self.models
             .chunks(MODELS_PER_PAGE)
             .nth(self.model_page)
@@ -123,11 +124,8 @@ impl Draft {
         self.tanks.get(slot.0.checked_sub(1)? as usize)?.as_ref()
     }
 
-    pub(super) fn deploy(&mut self, model: &Path, team: TeamId) {
-        if self
-            .models
-            .binary_search_by(|p| p.as_path().cmp(model))
-            .is_ok()
+    pub(super) fn deploy(&mut self, model: &Model, team: TeamId) {
+        if self.models.binary_search(model).is_ok()
             && self.teams.contains(&team)
             && let Some(slot) = self.tanks.iter_mut().find(|t| t.is_none())
         {
@@ -208,7 +206,9 @@ impl Draft {
     }
 
     pub(super) fn config(&self, map: &ArenaMap) -> Result<(ClockRules, Vec<Seat>), String> {
-        if let Some(error) = &self.scan_error {
+        if let Some(error) = &self.scan_error
+            && self.slots().any(|(_, t)| matches!(t.model, Model::File(_)))
+        {
             return Err(format!("{}: {error}", tr("scanError")));
         }
         let clock = self.clock()?;
@@ -218,7 +218,9 @@ impl Draft {
 }
 
 pub(super) fn sync_models(d: &mut ResMut<Draft>) {
-    let scan = local_files::bots_dir().and_then(|dir| tank_arena::catalog::discover(&dir));
+    let scan = local_files::bots_dir()
+        .and_then(|dir| tank_arena::catalog::discover(&dir))
+        .map(Model::lineup);
     if d.bypass_change_detection().reconcile(scan) {
         d.set_changed();
     }
@@ -245,40 +247,44 @@ mod tests {
     use super::*;
 
     #[test]
-    fn empty_catalog_allows_setup_but_never_a_match() {
+    fn native_is_playable_without_files_and_a_namesake_stays_a_separate_pilot() {
         let dir = tempfile::tempdir().unwrap();
-        let mut draft = Draft::default();
-        let scan = || tank_arena::catalog::discover(dir.path());
+        let mut d = Draft::default();
+        let scan = || tank_arena::catalog::discover(dir.path()).map(Model::lineup);
         let map = SWITCHYARD.parse().unwrap();
-        draft.reconcile(scan());
-
-        assert!(draft.clock().is_ok());
-        assert_eq!(draft.seats().count(), 0);
-        assert_eq!(
-            draft.config(&map).unwrap_err(),
-            config_error(ConfigError::SlotCount)
-        );
-        let model = dir.path().join("first.luau");
-        std::fs::write(&model, "return function() end").unwrap();
-        draft.reconcile(scan());
-        draft.deploy(&model, TeamId(1));
-        draft.deploy(&model, TeamId(2));
-
-        assert!(draft.config(&map).is_ok());
-        std::fs::remove_file(model).unwrap();
-        draft.reconcile(scan());
-
-        assert!(draft.models.is_empty());
-        assert_eq!(
-            draft.config(&map).unwrap_err(),
-            config_error(ConfigError::SlotCount)
-        );
+        d.reconcile(scan());
+        let (_, seats) = d.config(&map).unwrap();
+        assert_eq!(seats.len(), 2);
+        assert!(d.slots().all(|(_, t)| t.model == Model::Avalon));
+        let native = d.tank(seats[0].slot).unwrap().model.entrant(seats[0]);
+        assert!(matches!(
+            native.pilot,
+            Ok(tank_arena::runner::Pilot::Avalon)
+        ));
+        // Even an unreadable scripts directory is not a dependency of a native mirror.
+        let mut unreadable = Draft::default();
+        unreadable.reconcile(Err(io::Error::other("cannot scan scripts")));
+        assert_eq!(unreadable.config(&map).unwrap().1, seats);
+        let path = dir.path().join("Avalon.luau");
+        std::fs::write(&path, "return function() end").unwrap();
+        let local = Model::File(path.clone());
+        d.reconcile(scan());
+        d.deploy(&local, TeamId(1));
+        let seat = d.seats().last().unwrap();
+        let old = d.tank(seat.slot).unwrap().model.entrant(seat);
+        assert!(old.script().is_some());
+        assert_ne!(native.name, old.name);
+        assert_ne!(native.fingerprint(), old.fingerprint());
+        std::fs::remove_file(path).unwrap();
+        d.reconcile(scan());
+        assert_eq!(d.models, [Model::Avalon]);
+        assert_eq!(d.config(&map).unwrap().1, seats);
     }
 
     #[test]
     fn one_model_seeds_a_playable_mirror_match() {
         let mut draft = Draft::default();
-        let model = PathBuf::from("example.luau");
+        let model = Model::File("example.luau".into());
         draft.reconcile(Ok(vec![model.clone()]));
         let (_, seats) = draft.config(&SWITCHYARD.parse().unwrap()).unwrap();
         assert_eq!(seats.len(), 2);
@@ -293,10 +299,10 @@ mod tests {
     #[test]
     fn models_are_reusable_across_teams_and_only_deployments_take_slots() {
         let mut d = Draft::default();
-        let model = Path::new("example.luau");
+        let model = &Model::File("example.luau".into());
         d.reconcile(Ok(vec![]));
         let mut paths: Vec<_> = (0..12)
-            .map(|i| PathBuf::from(format!("model{i}")))
+            .map(|i| Model::File(format!("model{i}").into()))
             .collect();
         paths.push(model.to_owned());
         paths.sort();
@@ -311,13 +317,13 @@ mod tests {
         d.remove(SlotId(3));
 
         assert!(d.tank(SlotId(3)).is_none());
-        assert_eq!(d.tank(SlotId(4)).unwrap().model, model);
-        let replacement = Path::new("model11");
+        assert_eq!(d.tank(SlotId(4)).unwrap().model, *model);
+        let replacement = &Model::File("model11".into());
         d.deploy(replacement, TeamId(2));
         let (_, seats) = d.config(&SWITCHYARD.parse().unwrap()).unwrap();
         assert_eq!(seats[2].slot, SlotId(3));
         assert_eq!(seats[2].team, TeamId(2));
-        assert_eq!(d.tank(seats[2].slot).unwrap().model, replacement);
+        assert_eq!(d.tank(seats[2].slot).unwrap().model, *replacement);
         assert!(d.models.contains(&model.to_owned()));
     }
 
@@ -334,11 +340,13 @@ mod tests {
         fs::write(&beta, "old").unwrap();
         fs::write(&gamma, "other").unwrap();
         let mut d = Draft::default();
-        let scan = |d: &mut Draft| d.reconcile(discover(dir));
+        let scan = |d: &mut Draft| {
+            d.reconcile(discover(dir).map(|ps| ps.into_iter().map(Model::File).collect()))
+        };
         assert!(scan(&mut d));
-        d.deploy(&gamma, TeamId(1));
+        d.deploy(&Model::File(gamma.clone()), TeamId(1));
         let first = d.seats().next().unwrap();
-        let entrant = |d: &Draft| Entrant::from_file(first, &d.tank(first.slot).unwrap().model);
+        let entrant = |d: &Draft| d.tank(first.slot).unwrap().model.entrant(first);
         let playing = entrant(&d);
 
         // 即使在已部署路径之前插入新条目，也不能换掉任何席位的脚本。
@@ -349,16 +357,16 @@ mod tests {
         assert!(scan(&mut d));
         d.model_page = 1;
 
-        assert_eq!(d.tank(SlotId(1)).unwrap().model, beta);
-        assert_eq!(d.tank(SlotId(2)).unwrap().model, gamma);
+        assert_eq!(d.tank(SlotId(1)).unwrap().model, Model::File(beta.clone()));
+        assert_eq!(d.tank(SlotId(2)).unwrap().model, Model::File(gamma.clone()));
 
         // 同名文件被原子替换时，无须重建阵容或重启程序。
         fs::write(dir.join("save.tmp"), "new").unwrap();
         fs::rename(dir.join("save.tmp"), &beta).unwrap();
 
         assert!(!scan(&mut d));
-        assert_eq!(playing.script.unwrap().text(), "old");
-        assert_eq!(entrant(&d).script.unwrap().text(), "new");
+        assert_eq!(playing.script().unwrap().text(), "old");
+        assert_eq!(entrant(&d).script().unwrap().text(), "new");
         fs::remove_file(&gamma).unwrap();
         for i in 0..5 {
             fs::remove_file(dir.join(format!("a{i}.luau"))).unwrap();
@@ -366,7 +374,7 @@ mod tests {
 
         assert!(scan(&mut d));
         assert_eq!(d.model_page, 0);
-        d.deploy(&gamma, TeamId(2)); // 过期卡片不能部署成另一个模型。
+        d.deploy(&Model::File(gamma.clone()), TeamId(2)); // 过期卡片不能部署成另一个模型。
 
         assert_eq!(d.seats().collect::<Vec<_>>(), vec![first]);
         fs::write(&gamma, "returned").unwrap();
@@ -378,7 +386,7 @@ mod tests {
     #[test]
     fn a_scan_error_recovers_without_clearing_the_lineup() {
         let mut d = Draft::default();
-        let paths = vec!["a.luau".into(), "b.luau".into()];
+        let paths = vec![Model::File("a.luau".into()), Model::File("b.luau".into())];
         let map = SWITCHYARD.parse().unwrap();
         d.reconcile(Ok(paths.clone()));
 
@@ -394,7 +402,7 @@ mod tests {
     fn removing_an_empty_team_repairs_selection_and_keeps_launch_validation() {
         let mut d = Draft::default();
         let map = SWITCHYARD.parse().unwrap();
-        let model = Path::new("A");
+        let model = &Model::File("A".into());
         d.reconcile(Ok(vec![model.to_owned()]));
         d.remove(SlotId(2)); // 本用例从只有一队已部署的局面开始。
         d.add_team();
@@ -426,7 +434,7 @@ mod tests {
     #[test]
     fn deleting_a_populated_middle_team_requires_confirmation_and_preserves_other_ids() {
         let mut d = Draft::default();
-        let model = Path::new("one.luau");
+        let model = &Model::File("one.luau".into());
         d.reconcile(Ok(vec![model.to_owned()]));
         d.add_team();
         d.deploy(model, TeamId(3));
@@ -448,7 +456,7 @@ mod tests {
         assert_eq!(d.selected_team, TeamId(3));
         assert!(d.tank(SlotId(2)).is_none());
         assert_eq!(d.tank(SlotId(3)).unwrap().team, TeamId(3));
-        assert_eq!(d.models, [model]);
+        assert_eq!(d.models, [model.clone()]);
         d.add_team();
 
         assert_eq!(d.teams, [TeamId(1), TeamId(3), TeamId(2)]);

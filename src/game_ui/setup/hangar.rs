@@ -2,7 +2,7 @@ use super::*;
 use tank_arena::bot::Script;
 
 #[derive(Component)]
-struct ModelCard(PathBuf);
+struct ModelCard(Model);
 
 #[derive(Component)]
 pub(super) struct Rack;
@@ -16,7 +16,7 @@ pub(super) struct CatalogView {
     page: usize,
     pages: usize,
     full: bool,
-    versions: Vec<(PathBuf, Option<tank_arena::local_files::Entry>)>,
+    versions: Vec<(Model, Option<tank_arena::local_files::Entry>)>,
 }
 
 /// 仅重建发生变化的页，不因普通阵容编辑丢失卡片的指针目标。
@@ -95,9 +95,9 @@ fn render(
         ..column(6.)
     })
     .with_children(|p| {
-        for path in d.visible_models() {
-            let script = profiles.script(path);
-            let name = profiles.name(path);
+        for model in d.visible_models() {
+            let script = profiles.script(model);
+            let name = profiles.name(model);
             let mut card = p.spawn(Node {
                 width: percent(100),
                 height: px(52),
@@ -116,7 +116,7 @@ fn render(
                 ));
             } else {
                 card.insert((
-                    ModelCard(path.clone()),
+                    ModelCard(model.clone()),
                     Button,
                     AccessibleLabel::new(name.to_string()),
                     GlobalZIndex(0),
@@ -138,10 +138,13 @@ fn render(
             card.with_children(|p| {
                 p.spawn(
                     images
-                        .model(looks.resolve(path, script.map(Script::text)).as_ref())
+                        .model(model.skin(looks, script).as_ref())
                         .icon(quiet()),
                 );
                 p.spawn(grouping::clipped_name(&name));
+                if *model == Model::Avalon {
+                    p.spawn(label("Rust", 13., quiet()));
+                }
                 if let Some(script) = script {
                     tip(p, script);
                 }
@@ -358,7 +361,7 @@ mod tests {
         // 注册 Bevy 遍历指针目标时使用的可选窗口组件。
         w.register_component::<Window>();
         let mut draft = Draft::default();
-        let model = PathBuf::from("example.luau");
+        let model = Model::File("example.luau".into());
         draft.models.push(model.clone());
         w.insert_resource(draft);
         let card = w.spawn((ModelCard(model), Pickable::default())).id();
@@ -389,7 +392,7 @@ mod tests {
         let mut w = bevy::prelude::World::new();
         let id = w
             .spawn((
-                ModelCard("example.luau".into()),
+                ModelCard(Model::File("example.luau".into())),
                 bevy::ui::Pressed,
                 UiTransform::default(),
                 GlobalZIndex(0),

@@ -3,12 +3,14 @@ mod draft;
 mod grouping;
 mod hangar;
 mod items;
+mod model;
 mod profiles;
 mod team_scroll;
 
 use super::*;
 use bevy::input::keyboard::KeyboardInput;
 use draft::*;
+use model::Model;
 use profiles::Profiles;
 use std::sync::Arc;
 use tank_arena::{
@@ -157,10 +159,10 @@ fn start(
         let bots: Vec<_> = seats
             .into_iter()
             .map(|seat| {
-                let path = &d.tank(seat.slot).unwrap().model;
+                let model = &d.tank(seat.slot).unwrap().model;
                 let first = snapshots
-                    .entry(path)
-                    .or_insert_with(|| Entrant::from_file(seat, path));
+                    .entry(model)
+                    .or_insert_with(|| model.entrant(seat));
                 Entrant {
                     seat,
                     ..first.clone()
@@ -171,10 +173,11 @@ fn start(
         let dir = tempfile::tempdir().map_err(|_| tr("missingDir"))?;
         let mut skins: tank_arena::replay::SeatSkins = Default::default();
         for bot in &bots {
-            skins[bot.seat.slot.0 as usize - 1] = looks.resolve(
-                &d.tank(bot.seat.slot).unwrap().model,
-                bot.script.as_ref().ok().map(Script::text),
-            );
+            skins[bot.seat.slot.0 as usize - 1] = d
+                .tank(bot.seat.slot)
+                .unwrap()
+                .model
+                .skin(&looks, bot.script());
         }
 
         let models = images.for_roster(bots.iter().map(|b| b.seat.slot), &skins);

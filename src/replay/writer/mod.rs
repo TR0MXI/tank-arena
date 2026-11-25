@@ -176,11 +176,7 @@ impl MatchLog for Recorder {
                     seat: b.seat,
                     name: b.name.clone(),
                     spawn: t.center,
-                    script_blake3: b
-                        .script
-                        .as_ref()
-                        .ok()
-                        .map(|s| s.blake3().to_hex().to_string()),
+                    script_blake3: b.fingerprint().map(|hash| hash.to_hex().to_string()),
                 })
                 .collect(),
             init_faults: faults.into(),

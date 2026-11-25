@@ -24,7 +24,9 @@ fn record_with_items(dir: &Path, n: usize, ticks: u64, pool: ItemPool) -> PathBu
         .map(|&seat| Entrant {
             seat,
             name: "idle".into(),
-            script: Ok(Script::from_source("idle", "return function(_) return nil end").unwrap()),
+            pilot: Ok(Pilot::Luau(
+                Script::from_source("idle", "return function(_) return nil end").unwrap(),
+            )),
         })
         .collect::<Vec<_>>();
     let mut w = World::new(

@@ -145,3 +145,73 @@ fn stop_interrupts_loops_in_setup_and_decision() {
         joined.join().unwrap();
     }
 }
+
+#[test]
+fn native_and_namesake_luau_submit_distinct_recorded_controls() {
+    use tank_arena::{
+        replay::{Playback, RecordStatus, Recorder},
+        runner::Decision,
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let native_slot = SlotId(7); // sparse and deliberately out of roster order
+    let builtin = Entrant::avalon(Seat {
+        slot: native_slot,
+        team: TeamId(1),
+    });
+    let script =
+        Script::from_source("Avalon", "return function() return {turn='right'} end").unwrap();
+    let lua_slot = SlotId(2);
+    let legacy = Entrant::from_script(
+        Seat {
+            slot: lua_slot,
+            team: TeamId(2),
+        },
+        script,
+    );
+    let expected =
+        [&legacy, &builtin].map(|e| (e.name.clone(), e.fingerprint().unwrap().to_string()));
+    let (rec, status) = Recorder::new(dir.path());
+    let game = LiveMatch::start_with_items(
+        Arc::new(SWITCHYARD.parse().unwrap()),
+        ClockRules::unlimited(),
+        vec![builtin, legacy],
+        ItemPool::ALL,
+        rec,
+    )
+    .unwrap();
+    wait_for(|| game.latest().stats.iter().all(|s| s.completed > 0) || game.finished());
+    let frame = game.latest();
+    assert!(
+        frame
+            .stats
+            .iter()
+            .all(|s| s.fault.is_none() && s.completed > 0)
+    );
+    game.stop();
+    game.join().unwrap();
+    let RecordStatus::Saved(path) = status.status() else {
+        panic!("missing replay")
+    };
+    let mut replay = Playback::open(&path).unwrap();
+    for (info, (name, hash)) in replay.header.roster.iter().zip(expected) {
+        assert_eq!(info.name, name);
+        assert_eq!(info.script_blake3.as_deref(), Some(hash.as_str()));
+    }
+    let mut seen = [false; 2];
+    while !replay.ended() {
+        replay.advance().unwrap();
+        for input in replay.applied_inputs() {
+            if let Decision::Received { result: Ok(c), .. } = input.decision {
+                if input.slot == native_slot {
+                    assert!(c.drive.is_some() && c.turn.is_some() && c.fire.is_some());
+                    seen[0] = true;
+                } else if input.slot == lua_slot {
+                    assert_eq!(c.turn, Some(Turn::Right));
+                    assert_eq!(c.drive, None);
+                    seen[1] = true;
+                }
+            }
+        }
+    }
+    assert_eq!(seen, [true, true]);
+}

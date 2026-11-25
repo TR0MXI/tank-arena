@@ -66,7 +66,7 @@ fn file_headers_override_only_the_display_name_not_the_entry_path() {
         .unwrap();
         let bot = Entrant::from_file(seat, path);
         assert_eq!(bot.name, "同名车");
-        let script = bot.script.unwrap();
+        let script = bot.script().unwrap();
         assert_eq!(script.author(), Some("Ada 王"));
         assert_eq!(script.description(), Some("沿墙巡逻。"));
     }
